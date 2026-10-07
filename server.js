@@ -1,5 +1,5 @@
 import http from "node:http";
-import {spawn, spawnSync} from "node:child_process";
+import {spawn, execFile} from "node:child_process";
 import {readFile, readdir, rm} from "node:fs/promises";
 import {copyFileSync, createReadStream} from "node:fs";
 import os from "node:os";
@@ -12,7 +12,6 @@ const PORT = process.env.PORT || 8080;
 const YTDLP = process.env.YTDLP || "yt-dlp";
 const PROXY = process.env.YTDLP_PROXY || "";            // optional: residential proxy for YouTube/Instagram/Facebook
 const JS_RT = process.env.YTDLP_JS_RUNTIME ?? "node";   // YouTube needs a JS runtime in recent yt-dlp; this server runs on node. Set to "off" to disable
-const REMOTE = process.env.YTDLP_REMOTE_COMPONENTS ?? "on"; // YouTube JS challenge solver (yt-dlp-ejs); "off" to disable
 const MAX_JOBS = Number(process.env.MAX_JOBS || 3);     // parallel merge-to-file downloads
 const MAX_YT_SEC = Number(process.env.MAX_YT_MIN || 60) * 60;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -35,26 +34,12 @@ if (process.env.YTDLP_COOKIES) {
   catch (e) { console.error("cookies not loaded:", e.message); }
 }
 
-// what the installed yt-dlp understands (old versions fail on unknown flags, so only pass supported ones)
-const caps = {version: "?", jsRt: false, remote: false};
-async function probe() {
-  try {
-    caps.version = (await run(["--version"], 15000)).trim();
-    const help = await run(["--help"], 15000);
-    caps.jsRt = help.includes("--js-runtimes");
-    caps.remote = help.includes("--remote-components");
-  } catch (e) { console.error("yt-dlp probe failed:", e.message); }
-  console.log(`yt-dlp ${caps.version} | js-runtimes:${caps.jsRt} remote-components:${caps.remote} | cookies:${hasCookies} proxy:${!!PROXY}`);
-  if (!caps.jsRt) console.error("WARNING: yt-dlp is too old for current YouTube. Update: pip install -U \"yt-dlp[default]\"");
-}
-
 // TikTok blocks plain requests from datacenter IPs; impersonating a real browser helps
 const base = k => [
   ...(k === "tiktok" ? ["--impersonate", "chrome"] : []),
   ...(hasCookies ? ["--cookies", COOKIES] : []),
   ...(PROXY ? ["--proxy", PROXY] : []),
-  ...(k === "youtube" && caps.jsRt && JS_RT && JS_RT !== "off" ? ["--js-runtimes", JS_RT] : []),
-  ...(k === "youtube" && caps.remote && REMOTE !== "off" ? ["--remote-components", "ejs:github"] : [])
+  ...(k === "youtube" && JS_RT && JS_RT !== "off" ? ["--js-runtimes", JS_RT] : [])
 ];
 
 function ytVideo(u) {
@@ -246,10 +231,32 @@ function download(req, res, params) {
   setTimeout(kill, 5 * 60 * 1000);
 }
 
+// Diagnostics: shows the REAL reason a link fails. Enabled only when DIAG_KEY env var is set.
+// Open: /api/diag?key=YOUR_KEY&url=<video link>
+const DIAG_KEY = process.env.DIAG_KEY || "";
+const sh = (cmd, args, ms = 8000) => new Promise(r =>
+  execFile(cmd, args, {timeout: ms, maxBuffer: 5e6}, (e, o, er) => r(((o || "") + (er || "")) || String(e || ""))));
+async function diag(res, params) {
+  if (!DIAG_KEY || params.get("key") !== DIAG_KEY) return json(res, 403, {error: "forbidden"});
+  const out = {
+    ytdlp: (await sh(YTDLP, ["--version"])).trim(), node: (await sh("node", ["--version"])).trim(),
+    ffmpeg: (await sh("ffmpeg", ["-version"])).split("\n")[0],
+    cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT
+  };
+  const c = check(params.get("url") || "");
+  if (c) {
+    let t = await sh(YTDLP, ["-v", "-s", "--no-playlist", ...base(c.k), c.href], 60000);
+    if (PROXY) t = t.split(PROXY).join("***");
+    out.test = t.slice(-3500);
+  }
+  json(res, 200, out);
+}
+
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
   try {
+    if (u.pathname === "/api/diag") return diag(res, u.searchParams);
     if (u.pathname === "/api/health") return json(res, 200, {ok: true});
     if (u.pathname === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests"}) : extract(req, res);
     if (u.pathname === "/api/download" && req.method === "GET") return limited(ip) ? json(res, 429, {error: "too many requests"}) : download(req, res, u.searchParams);
@@ -257,17 +264,6 @@ http.createServer(async (req, res) => {
       res.writeHead(200, {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache"});
       return res.end(await readFile(path.join(dir, "public/index.html")));
     }
-    // temporary diagnostics: set DIAG_KEY, open /api/diag?key=<DIAG_KEY>, then remove DIAG_KEY again
-    if (u.pathname === "/api/diag" && process.env.DIAG_KEY && u.searchParams.get("key") === process.env.DIAG_KEY) {
-      const first = b => (b?.toString() || "").split("\n")[0] || "missing";
-      const tools = {node: process.version, ffmpeg: first(spawnSync("ffmpeg", ["-version"]).stdout), ytdlp: caps.version};
-      const c = check(u.searchParams.get("url") || "https://www.youtube.com/watch?v=jNQXAC9IVRw");
-      const env = {caps, cookies: hasCookies, proxy: !!PROXY, jsRuntime: JS_RT, remoteComponents: REMOTE};
-      try {
-        const info = JSON.parse(await run(["-J", "--no-playlist", "--no-warnings", ...base("youtube"), c.href], 60000));
-        return json(res, 200, {ok: true, tools, env, title: info.title, heights: [...new Set(heightsOf(info))].sort((a, b) => b - a)});
-      } catch (e) { return json(res, 200, {ok: false, tools, env, stderr: (e.stderr || e.message || "").slice(-1500)}); }
-    }
     json(res, 404, {error: "not found"});
   } catch { json(res, 500, {error: "server error"}); }
-}).listen(PORT, () => { console.log(`MOON running on :${PORT}`); probe(); });
+}).listen(PORT, () => console.log(`MOON running on :${PORT}`));
