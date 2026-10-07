@@ -207,7 +207,7 @@ async function extract(req, res) {
     });
   } catch (err) {
     const code = why(err.stderr);
-    if (c.k === "youtube" && APIFY_TOKEN && code === "login") {
+    if (c.k === "youtube" && APIFY_TOKEN && code !== "novideo") {
       try {
         const {items, link} = await apifyYt(c.href);
         const it = Array.isArray(items) ? items[0] || {} : {};
