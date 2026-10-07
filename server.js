@@ -13,6 +13,8 @@ const HOSTS = {
   facebook: /(^|\.)(facebook\.com|fb\.watch)$/,
   x: /(^|\.)(x\.com|twitter\.com)$/
 };
+// TikTok blocks plain requests from datacenter IPs; impersonating a real browser helps
+const extra = k => k === "tiktok" ? ["--impersonate", "chrome"] : [];
 const NAMES = {tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook", x: "X"};
 
 // allow only the four supported platforms (also blocks SSRF to internal hosts)
@@ -60,7 +62,7 @@ async function extract(req, res) {
   const c = check(url);
   if (!c) return json(res, 400, {error: "unsupported link"});
   try {
-    const info = JSON.parse(await run(["-J", "--no-playlist", "--no-warnings", c.href]));
+    const info = JSON.parse(await run(["-J", "--no-playlist", "--no-warnings", ...extra(c.k), c.href]));
     const heights = (info.formats || []).filter(f => f.vcodec && f.vcodec !== "none" && f.height).map(f => f.height);
     const max = Math.max(0, ...heights);
     const q = [1080, 720, 480, 360].filter(h => h <= max).slice(0, 3);
@@ -83,7 +85,7 @@ function download(req, res, params) {
   if (!c || !(q === "mp3" || /^\d{3,4}$/.test(q))) return json(res, 400, {error: "bad request"});
   const mp3 = q === "mp3";
   const fmt = mp3 ? "ba/b" : `b[height<=${q}][ext=mp4]/b[height<=${q}]/b`;
-  const yt = spawn(YTDLP, ["-f", fmt, "--no-playlist", "--no-warnings", "-o", "-", c.href], {stdio: ["ignore", "pipe", "ignore"]});
+  const yt = spawn(YTDLP, ["-f", fmt, "--no-playlist", "--no-warnings", ...extra(c.k), "-o", "-", c.href], {stdio: ["ignore", "pipe", "ignore"]});
   const procs = [yt]; let out = yt.stdout;
   if (mp3) {
     const ff = spawn("ffmpeg", ["-loglevel", "error", "-i", "pipe:0", "-vn", "-f", "mp3", "pipe:1"], {stdio: ["pipe", "pipe", "ignore"]});
