@@ -35,11 +35,16 @@ function limited(ip) {
 function run(args, ms = 30000) {
   return new Promise((resolve, reject) => {
     const p = spawn(YTDLP, args, {stdio: ["ignore", "pipe", "pipe"]});
-    let out = "";
+    let out = "", err = "";
     const t = setTimeout(() => p.kill("SIGKILL"), ms);
     p.stdout.on("data", d => { out += d; if (out.length > 20e6) p.kill("SIGKILL"); });
-    p.on("close", code => { clearTimeout(t); code === 0 ? resolve(out) : reject(new Error("extract failed")); });
-    p.on("error", reject);
+    p.stderr.on("data", d => { err += d; });
+    p.on("close", code => {
+      clearTimeout(t);
+      if (code === 0) resolve(out);
+      else { console.error("yt-dlp ERROR:", err.slice(-800)); reject(new Error("extract failed")); }
+    });
+    p.on("error", e => { console.error("yt-dlp SPAWN ERROR:", e.message); reject(e); });
   });
 }
 
