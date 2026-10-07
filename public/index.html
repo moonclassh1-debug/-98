@@ -58,8 +58,8 @@ h1{margin:0 auto 24px;font-weight:800;font-size:clamp(24px,calc((100vw - 44px)/1
 .tool{position:relative;scroll-margin-top:24px;max-width:720px;margin:0 auto;text-align:left;padding:14px;border-radius:32px;border:1px solid transparent;
 background:linear-gradient(var(--card),var(--card)) padding-box,radial-gradient(440px circle at var(--mx,50%) var(--my,0%),color-mix(in srgb,var(--a) 85%,transparent),rgba(255,255,255,.1) 60%) border-box;
 box-shadow:0 60px 110px -50px color-mix(in srgb,var(--a) 55%,transparent),0 30px 60px -30px #000;animation:up 1.1s .4s var(--ease) both}
-.tabs{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:5px;margin-bottom:12px;background:#06070c;border:1px solid var(--line);border-radius:22px}
-#ind{position:absolute;top:5px;bottom:5px;left:5px;width:calc((100% - 10px)/4);border-radius:17px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--a) 55%,transparent);transition:transform .42s var(--snap)}
+.tabs{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:5px;margin-bottom:12px;background:#06070c;border:1px solid var(--line);border-radius:22px}
+#ind{position:absolute;top:5px;bottom:5px;left:5px;width:calc((100% - 10px)/5);border-radius:17px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--a) 55%,transparent);transition:transform .42s var(--snap)}
 .tab{position:relative;z-index:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:9px;border:0;background:transparent;color:var(--mut);font-weight:600;font-size:14px;padding:13px 6px;border-radius:17px;cursor:pointer;white-space:nowrap;transition:color .3s}
 .tab .lg{width:22px;height:22px;opacity:.55;transition:opacity .3s,transform .42s var(--snap)}
 .tab:hover{color:var(--tx)}.tab:hover .lg{opacity:.95}
@@ -94,6 +94,7 @@ form.err input{border-color:var(--bad);animation:shake .4s}
 @media(max-width:560px){.card{grid-template-columns:1fr}.thumb{max-height:190px;aspect-ratio:16/9!important}}
 .thumb{position:relative;aspect-ratio:9/12;border-radius:17px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(145deg,color-mix(in srgb,var(--a) 30%,#10121c),color-mix(in srgb,var(--b) 26%,#10121c))}
 .thumb .lg{width:54px;height:54px}
+.thumb.wide{aspect-ratio:16/9;align-self:start}
 .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .thumb small{position:absolute;z-index:1;bottom:8px;right:8px;font-size:12px;font-weight:600;background:rgba(0,0,0,.65);color:#fff;padding:2px 9px;border-radius:99px}
 .card h3{margin:0 0 2px;font-weight:700;font-size:17px;line-height:1.4;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -116,16 +117,17 @@ section{padding:140px 0 0}
 h2{margin:0 0 12px;font-weight:700;font-size:clamp(28px,4.8vw,48px);line-height:1.15;letter-spacing:-.025em}
 .sub{color:var(--mut);max-width:540px;margin:0 0 48px;font-weight:300;font-size:17px}
 
-.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.pgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
 .pc{position:relative;display:flex;flex-direction:column;gap:14px;padding:26px 24px 28px;border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 45%),var(--card);border:1px solid var(--line);text-decoration:none;overflow:hidden;transition:transform .7s var(--soft),border-color .5s}
 .pc::before{content:"";position:absolute;inset:0;background:radial-gradient(320px circle at 50% -10%,color-mix(in srgb,var(--a) 38%,transparent),transparent 70%);opacity:0;transition:opacity .7s var(--soft)}
 .pc:active{transform:scale(.985);transition-duration:.18s}
 @media(hover:hover){.pc:hover{transform:translate3d(0,-4px,0);border-color:color-mix(in srgb,var(--a) 55%,transparent)}.pc:hover::before{opacity:1}.pc:hover .lg{transform:scale(1.06)}}
+.pc{grid-column:span 2}.pc:nth-child(n+4){grid-column:span 3}
 .pc>*{position:relative}
 .pc .lg{width:54px;height:54px;margin-bottom:16px;transition:transform .7s var(--soft)}
 .pc h3{margin:0;font-weight:800;font-size:22px}.pc p{margin:0;color:var(--mut);font-size:14.5px}
-@media(max-width:900px){.pgrid{grid-template-columns:1fr 1fr}}
-@media(max-width:480px){.pgrid{grid-template-columns:1fr}.pc{display:grid;grid-template-columns:54px 1fr;gap:2px 18px;padding:22px}.pc .lg{grid-row:span 2;margin:0}}
+@media(max-width:900px){.pgrid{grid-template-columns:1fr 1fr}.pc:nth-child(n){grid-column:auto}.pc:nth-child(5){grid-column:1/-1}}
+@media(max-width:480px){.pgrid{grid-template-columns:1fr}.pc:nth-child(5){grid-column:auto}.pc{display:grid;grid-template-columns:54px 1fr;gap:2px 18px;padding:22px}.pc .lg{grid-row:span 2;margin:0}}
 
 .steps{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px;counter-reset:s}
 .steps::before{content:"";position:absolute;top:21px;left:21px;right:21px;height:1px;background:linear-gradient(90deg,var(--a),var(--b));opacity:.55;transform:scaleX(0);transform-origin:0 0;transition:transform 2.4s .2s cubic-bezier(.45,.05,.25,1)}
@@ -165,7 +167,7 @@ footer b{color:var(--tx);letter-spacing:.06em}
 .post span{color:var(--mut);font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 #toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140px);z-index:50;background:#f4f5fa;color:#05060a;padding:13px 22px;border-radius:16px;font-weight:600;font-size:14px;width:max-content;max-width:calc(100vw - 32px);text-align:center;box-shadow:0 18px 40px -10px rgba(0,0,0,.6);transition:transform .6s var(--ease)}
 #toast.on{transform:translate(-50%,0)}
-@media(max-width:520px){.logo{font-size:12px;letter-spacing:.04em}.bar{height:50px;padding:0 16px}.hero{padding-top:40px}.lead{font-size:16px}.tool{padding:10px;border-radius:28px}.tabs{border-radius:19px;padding:4px}#ind{top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/4)}.tab{flex-direction:column;gap:6px;font-size:11.5px;padding:10px 2px}.paste{padding:0 16px}section{padding-top:96px}}
+@media(max-width:520px){.logo{font-size:12px;letter-spacing:.04em}.bar{height:50px;padding:0 16px}.hero{padding-top:40px}.lead{font-size:16px}.tool{padding:10px;border-radius:28px}.tabs{border-radius:19px;padding:4px}#ind{top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/5)}.tab{flex-direction:column;gap:6px;font-size:10.5px;padding:10px 0}.paste{padding:0 16px}section{padding-top:96px}}
 @media(max-width:370px){.logo{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.rv,.step{opacity:1}}
 </style>
@@ -181,6 +183,7 @@ footer b{color:var(--tx);letter-spacing:.06em}
 <symbol id="l-tiktok" viewBox="0 0 24 24"><rect width="24" height="24" rx="5.6" fill="#000"/><rect x=".4" y=".4" width="23.2" height="23.2" rx="5.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width=".8"/><g transform="translate(4.6 4.4) scale(.63)"><use href="#ttp" fill="#25F4EE" transform="translate(-.8 -.6)"/><use href="#ttp" fill="#FE2C55" transform="translate(.8 .6)"/><use href="#ttp" fill="#fff"/></g></symbol>
 <symbol id="l-instagram" viewBox="0 0 24 24"><rect width="24" height="24" rx="5.6" fill="url(#igr)"/><rect x="5.3" y="5.3" width="13.4" height="13.4" rx="4" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="15.8" cy="8.2" r=".95" fill="#fff"/></symbol>
 <symbol id="l-facebook" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#0866FF"/><path fill="#fff" d="M16.7 15.5l.5-3.2h-3.1V10.2c0-.9.4-1.7 1.8-1.7h1.4V5.8s-1.3-.2-2.5-.2c-2.5 0-4.2 1.5-4.2 4.3v2.4H7.1v3.2h2.5V24h3.1v-8.5z"/></symbol>
+<symbol id="l-youtube" viewBox="0 0 24 24"><rect x="1" y="4.6" width="22" height="14.8" rx="4.4" fill="#f03"/><path fill="#fff" d="M9.7 8.9v6.2l5.4-3.1z"/></symbol>
 <symbol id="l-x" viewBox="0 0 24 24"><rect width="24" height="24" rx="5.6" fill="#000"/><rect x=".4" y=".4" width="23.2" height="23.2" rx="5.2" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width=".8"/><path fill="#fff" transform="translate(5.2 5.4) scale(.6)" d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></symbol>
 </svg>
 
@@ -197,13 +200,14 @@ footer b{color:var(--tx);letter-spacing:.06em}
     <button class="orb o3" data-go="facebook" aria-label="Facebook"><svg class="lg"><use href="#l-facebook"/></svg></button>
     <button class="orb o4" data-go="x" aria-label="X"><svg class="lg"><use href="#l-x"/></svg></button>
     <h1><span class="ln"><span>ჩასვი ბმული და</span></span><span class="ln"><span>გადმოწერე ვიდეო</span></span></h1>
-    <p class="lead">TikTok-ის, Instagram-ის, Facebook-ისა და X-ის საჯარო ვიდეოები ერთ ადგილას, MP4 ან MP3 ფორმატით</p>
+    <p class="lead">TikTok-ის, Instagram-ის, Facebook-ის, X-ისა და YouTube-ის საჯარო ვიდეოები ერთ ადგილას, MP4 ან MP3 ფორმატით</p>
     <div class="tool">
       <div class="tabs" role="tablist"><span id="ind"></span>
         <button class="tab" role="tab" data-p="tiktok" aria-selected="true"><svg class="lg"><use href="#l-tiktok"/></svg>TikTok</button>
         <button class="tab" role="tab" data-p="instagram" aria-selected="false"><svg class="lg"><use href="#l-instagram"/></svg>Instagram</button>
         <button class="tab" role="tab" data-p="facebook" aria-selected="false"><svg class="lg"><use href="#l-facebook"/></svg>Facebook</button>
         <button class="tab" role="tab" data-p="x" aria-selected="false"><svg class="lg"><use href="#l-x"/></svg>X</button>
+        <button class="tab" role="tab" data-p="youtube" aria-selected="false"><svg class="lg"><use href="#l-youtube"/></svg>YouTube</button>
       </div>
       <form id="form" novalidate>
         <div class="field">
@@ -221,13 +225,14 @@ footer b{color:var(--tx);letter-spacing:.06em}
 </div>
 
 <section id="platforms"><div class="wrap">
-  <h2 class="rv">ოთხი პლატფორმა, ერთი ველი</h2>
+  <h2 class="rv">ხუთი პლატფორმა, ერთი ველი</h2>
   <p class="sub rv" style="--d:.15s">საიტი ავტომატურად ამოიცნობს, რომელი პლატფორმის ბმული ჩასვი, და შესაბამის ფორმატებს გაჩვენებს</p>
   <div class="pgrid">
     <a class="pc rv" href="#top" data-go="tiktok" style="--a:#25f4ee"><svg class="lg"><use href="#l-tiktok"/></svg><h3>TikTok</h3><p>ვიდეო საუკეთესო ხარისხით ან მხოლოდ ხმა MP3 ფორმატით</p></a>
-    <a class="pc rv" href="#top" data-go="instagram" style="--a:#f47133;--d:.15s"><svg class="lg"><use href="#l-instagram"/></svg><h3>Instagram</h3><p>Reels და საჯარო ვიდეოპოსტები ერთი დაწკაპუნებით</p></a>
-    <a class="pc rv" href="#top" data-go="facebook" style="--a:#4f9bff;--d:.3s"><svg class="lg"><use href="#l-facebook"/></svg><h3>Facebook</h3><p>საჯარო ვიდეოები და Reels HD ან სტანდარტული ხარისხით</p></a>
+    <a class="pc rv" href="#top" data-go="instagram" style="--a:#f47133;--d:.15s"><svg class="lg"><use href="#l-instagram"/></svg><h3>Instagram</h3><p>Reels და ლენტაში გამოჩენილი საჯარო ვიდეოპოსტები ერთი დაწკაპუნებით</p></a>
+    <a class="pc rv" href="#top" data-go="facebook" style="--a:#4f9bff;--d:.3s"><svg class="lg"><use href="#l-facebook"/></svg><h3>Facebook</h3><p>საჯარო ვიდეოები, პოსტები და Reels HD ან სტანდარტული ხარისხით</p></a>
     <a class="pc rv" href="#top" data-go="x" style="--a:#ffffff;--d:.45s"><svg class="lg"><use href="#l-x"/></svg><h3>X</h3><p>ვიდეოები და GIF-ები ტვიტებიდან</p></a>
+    <a class="pc rv" href="#top" data-go="youtube" style="--a:#ff4d4d;--d:.6s"><svg class="lg"><use href="#l-youtube"/></svg><h3>YouTube</h3><p>ვიდეოები და Shorts HD ხარისხით ან მხოლოდ ხმა MP3 ფორმატით</p></a>
   </div>
 </div></section>
 
@@ -263,9 +268,10 @@ footer b{color:var(--tx);letter-spacing:.06em}
 const API_URL="/api/extract";let live=false;fetch("/api/health").then(r=>{live=r.ok}).catch(()=>{});
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],RM=matchMedia("(prefers-reduced-motion:reduce)").matches,root=document.documentElement;
 const P={tiktok:{n:"TikTok",h:/(^|\.)tiktok\.com$/,a:"#25f4ee",b:"#fe2c55"},
-instagram:{n:"Instagram",h:/(^|\.)instagram\.com$/,a:"#fdb35c",b:"#e1306c"},
-facebook:{n:"Facebook",h:/(^|\.)(facebook\.com|fb\.watch)$/,a:"#5aa2ff",b:"#0866ff"},
-x:{n:"X",h:/(^|\.)(x\.com|twitter\.com)$/,a:"#ffffff",b:"#8b93a7"}};
+instagram:{n:"Instagram",h:/(^|\.)(instagram\.com|instagr\.am)$/,a:"#fdb35c",b:"#e1306c"},
+facebook:{n:"Facebook",h:/(^|\.)(facebook\.com|fb\.watch|fb\.com)$/,a:"#5aa2ff",b:"#0866ff"},
+x:{n:"X",h:/(^|\.)(x\.com|twitter\.com)$/,a:"#ffffff",b:"#8b93a7"},
+youtube:{n:"YouTube",h:/(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/,a:"#ff4d4d",b:"#ff0033"}};
 const keys=Object.keys(P),detect=u=>{try{const h=new URL(u).hostname;return keys.find(k=>P[k].h.test(h))||null}catch(e){return null}};
 const logo=k=>'<svg class="lg"><use href="#l-'+k+'"/></svg>';
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),3200)};
@@ -298,25 +304,33 @@ document.addEventListener("visibilitychange",()=>root.classList.toggle("off",doc
 /* flow */
 const form=$("#form"),go=$("#go"),res=$("#result"),prog=$("#prog"),bar=$("#bar");
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const ERR={
+notfound:"ვიდეო ვერ მოიძებნა, შეამოწმე საჯაროა თუ არა და სცადე ხელახლა",
+novideo:"ამ ბმულზე ვიდეო არ არის, შესაძლოა მხოლოდ ფოტოპოსტია",
+login:"პლატფორმა ამ ვიდეოს სერვერისთვის არ გვიხსნის: ის შეიძლება კერძო ან ასაკობრივად შეზღუდული იყოს, ან პლატფორმას შესვლა სჭირდებოდეს",
+toolong:"ვიდეო ძალიან გრძელია გადმოსაწერად",
+live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია",
+busy:"სერვერი ახლა დაკავებულია, სცადე რამდენიმე წამში",
+rate:"ძალიან ბევრი მოთხოვნა, ერთი წუთით დაელოდე"};
 const steps=[["ბმულის შემოწმება",.25],["ვიდეოს პოვნა",.55],["ფორმატების მომზადება",.85],["მზადაა",1]];
 form.addEventListener("submit",async e=>{e.preventDefault();
   const v=url.value.trim(),d=detect(v);
   if(!d){form.classList.remove("err");void form.offsetWidth;form.classList.add("err");hint.className="hint bad";
-    hint.textContent=v?"ეს ბმული მხარდაჭერილ პლატფორმას არ მიეკუთვნება, გამოიყენე TikTok-ის, Instagram-ის, Facebook-ის ან X-ის ბმული":"ჯერ ვიდეოს ბმული ჩასვი";return}
+    hint.textContent=v?"ეს ბმული მხარდაჭერილ პლატფორმას არ მიეკუთვნება, გამოიყენე TikTok-ის, Instagram-ის, Facebook-ის, X-ის ან YouTube-ის ბმული":"ჯერ ვიდეოს ბმული ჩასვი";return}
   go.disabled=true;go.textContent="მუშავდება";res.className="";res.innerHTML="";hint.className="hint";bar.style.width="0";prog.classList.add("on");
-  let data=null,fail=false;
-  const job=live?fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>data=j).catch(()=>fail=true):null;
+  let data=null,fail=false,code="";
+  const job=live?fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok){code=j.code||(r.status===429?"rate":"notfound");throw 0}return j}).then(j=>data=j).catch(()=>fail=true):null;
   for(let i=0;i<steps.length;i++){
     if(i===3&&job)await job;
     hint.innerHTML="<b>"+steps[i][0]+"</b>";bar.style.width=(steps[i][1]*100)+"%";await sleep(i===3?150:550)}
   prog.classList.remove("on");go.disabled=false;go.textContent="გადმოწერა";
-  if(fail){hint.className="hint bad";hint.textContent="ვიდეო ვერ მოიძებნა, შეამოწმე საჯაროა თუ არა და სცადე ხელახლა";return}
+  if(fail){hint.className="hint bad";hint.textContent=ERR[code]||ERR.notfound;return}
   data=data||{title:P[d].n+"-ის ვიდეო (დემო)",duration:"0:24",formats:[{label:"MP4 1080p",note:"HD",url:""},{label:"MP4 720p",note:"",url:""},{label:"MP4 480p",note:"მცირე ზომა",url:""},{label:"MP3",note:"მხოლოდ ხმა",url:""}]};
   render(d,data);save(v);hint.innerHTML="<b>მზადაა</b> აირჩიე ფორმატი"});
 
 function render(d,j){
   const rows=j.formats.map((f,i)=>'<div class="fmt" style="animation-delay:'+(.1+i*.08)+'s"><span>'+f.label+'<em>'+(f.note||"")+'</em></span><button type="button" class="btn dl" data-u="'+(f.url||"")+'">გადმოწერა</button></div>').join("");
-  res.innerHTML='<div class="card"><div class="thumb">'+logo(d)+'<small>'+(j.duration||"")+'</small></div><div><h3></h3><div class="meta">'+P[d].n+'</div><div class="fmts">'+rows+'</div></div></div>';
+  res.innerHTML='<div class="card"><div class="thumb'+(d==="youtube"?" wide":"")+'">'+logo(d)+'<small>'+(j.duration||"")+'</small></div><div><h3></h3><div class="meta">'+P[d].n+'</div><div class="fmts">'+rows+'</div></div></div>';
   res.querySelector("h3").textContent=j.title;
   if(j.thumbnail){const im=new Image(),th=res.querySelector(".thumb");im.referrerPolicy="no-referrer";im.alt="";im.onload=()=>th.prepend(im);im.src=j.thumbnail}res.className="show";
   res.querySelectorAll(".dl").forEach(b=>b.onclick=()=>{if(b.dataset.u){const a=document.createElement("a");a.href=b.dataset.u;a.download="";a.rel="noopener";a.click();toast("გადმოწერა დაიწყო")}else toast("დემო რეჟიმია: გვერდი სერვერს არ უკავშირდება")});
@@ -336,7 +350,7 @@ privacy:["კონფიდენციალურობის პოლიტ
 terms:["გამოყენების პირობები","<p>სერვისი განკუთვნილია მხოლოდ საჯარო ვიდეოების პირადი, არაკომერციული გამოყენებისთვის</p><p>გადმოწერილი მასალის გამოყენებაზე პასუხისმგებელი ხარ შენ. ვიდეოს გავრცელებამდე ავტორისგან ნებართვა უნდა აიღო</p><p>სერვისი მოქმედებს „როგორც არის“. ბოროტად გამოყენების შემთხვევაში წვდომას შეგიზღუდავთ</p>"],
 dmca:["საავტორო უფლებები (DMCA)","<p>თუ ფიქრობ, რომ შენი ნაშრომი ჩვენი სერვისით ნებართვის გარეშე გამოიყენება, მოგვწერე და საჭირო ზომებს მივიღებთ</p><p>წერილში მიუთითე ნაშრომის აღწერა, მისი ბმული, შენი საკონტაქტო მონაცემები და განცხადება, რომ უფლებების მფლობელი ხარ ან მის სახელით მოქმედებ</p><p>მისამართი: dmca@example.com</p>"],
 cookies:["ქუქიების პოლიტიკა","<p>საიტი ბრაუზერის მეხსიერებას მხოლოდ ბოლო ბმულების სიის შესანახად იყენებს</p><p>სარეკლამო ან თვალთვალის ქუქიები ამჟამად არ გამოიყენება</p>"],
-disclaimer:["პასუხისმგებლობის შეზღუდვა","<p>MOON SOCIAL VIDEO DOWNLOAD არ არის დაკავშირებული TikTok-თან, Instagram-თან, Facebook-თან ან X-თან და მათ მიერ დამტკიცებული არ არის</p><p>ყველა სავაჭრო ნიშანი მათ მფლობელებს ეკუთვნის</p>"],
+disclaimer:["პასუხისმგებლობის შეზღუდვა","<p>MOON SOCIAL VIDEO DOWNLOAD არ არის დაკავშირებული TikTok-თან, Instagram-თან, Facebook-თან, X-თან ან YouTube-თან და მათ მიერ დამტკიცებული არ არის</p><p>ყველა სავაჭრო ნიშანი მათ მფლობელებს ეკუთვნის</p>"],
 contact:["კონტაქტი","<p>შეკითხვებისა და შეტყობინებებისთვის მოგვწერე: hello@example.com</p>"]};
 const BL=[["mp4-mov-webm","MP4, MOV და WebM: რომელი ფორმატი აირჩიო","MP4 ყველაზე უნივერსალურია და თითქმის ყველა მოწყობილობაზე იხსნება. WebM ვებისთვის კარგია, MOV კი ხშირად Apple-ის მოწყობილობებზე გვხვდება"],
 ["resolution","ვიდეოს გარჩევადობა: 720p, 1080p და 4K","რაც უფრო მაღალია გარჩევადობა, მით მეტი დეტალი ჩანს და მით უფრო დიდია ფაილი. პატარა ეკრანზე 720p ხშირად საკმარისია"],
