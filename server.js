@@ -141,7 +141,8 @@ function videosOf(info) {
 // Render env: APIFY_TOKEN (required), APIFY_ACTOR (default below), APIFY_INPUT (JSON template, {{url}} is replaced), APIFY_MAX_USD (cost cap per video)
 const APIFY_TOKEN = process.env.APIFY_TOKEN || "";
 const APIFY_ACTOR = process.env.APIFY_ACTOR || "UUhJDfKJT2SsXdclR";
-const APIFY_MAX_USD = process.env.APIFY_MAX_USD || "0.5";
+const APIFY_MAX_USD = process.env.APIFY_MAX_USD || "2";
+const APIFY_TIMEOUT = Math.min(Number(process.env.APIFY_TIMEOUT || 280), 280);   // seconds; Apify sync endpoint allows max 300
 const APIFY_INPUT = process.env.APIFY_INPUT || '{"startUrls":[{"url":"{{url}}"}]}';
 
 function findVideoUrl(o, key = "") {
@@ -156,11 +157,11 @@ function findVideoUrl(o, key = "") {
 
 async function apifyYt(href) {
   const input = JSON.parse(APIFY_INPUT.split("{{url}}").join(href.replace(/\\/g, "\\\\").replace(/"/g, '\\"')));
-  const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(APIFY_ACTOR)}/run-sync-get-dataset-items?maxTotalChargeUsd=${APIFY_MAX_USD}&timeout=120`, {
+  const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(APIFY_ACTOR)}/run-sync-get-dataset-items?maxTotalChargeUsd=${APIFY_MAX_USD}&timeout=${APIFY_TIMEOUT}`, {
     method: "POST",
     headers: {"Content-Type": "application/json", "Authorization": "Bearer " + APIFY_TOKEN},
     body: JSON.stringify(input),
-    signal: AbortSignal.timeout(130000)
+    signal: AbortSignal.timeout((APIFY_TIMEOUT + 15) * 1000)
   });
   const text = await r.text();
   if (!r.ok) { console.error("APIFY ERROR:", r.status, text.slice(0, 500)); throw new Error("apify failed"); }
