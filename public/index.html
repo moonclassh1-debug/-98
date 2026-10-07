@@ -3,234 +3,318 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14130f">
+<meta name="theme-color" content="#05060a">
+<meta name="color-scheme" content="dark">
 <title>MOON SOCIAL VIDEO DOWNLOAD — სოციალური ვიდეოების გადმოწერა</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f3f0e8;--ink:#14130f;--mut:#6b675c;--card:#fff;--line:rgba(20,19,15,.12);--lime:#d4ff3a;--bad:#d6293e;--ok:#0d8a5f;
---sans:"Noto Sans Georgian",system-ui,-apple-system,"Segoe UI",sans-serif}
+@property --a{syntax:"<color>";inherits:true;initial-value:#25f4ee}
+@property --b{syntax:"<color>";inherits:true;initial-value:#fe2c55}
+:root{--bg:#05060a;--tx:#f4f5fa;--mut:#9ba0b5;--dim:#666b80;--line:rgba(255,255,255,.08);--card:#0b0d15;--bad:#ff7a8a;--ok:#4be3a6;--ease:cubic-bezier(.16,1,.3,1);
+--sans:"Noto Sans Georgian",system-ui,-apple-system,"Segoe UI",sans-serif;transition:--a .8s ease,--b .8s ease}
 *,*::before,*::after{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:76px;-webkit-text-size-adjust:100%}
+html{scroll-behavior:smooth;scroll-padding-top:96px;-webkit-text-size-adjust:100%;background:var(--bg)}
 html,body{max-width:100%;overflow-x:hidden}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.65 var(--sans);
-background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:44px 44px;background-position:-1px -1px}
-body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 50% 0,rgba(243,240,232,0) 0,var(--bg) 75%)}
-main,header,footer,#page{position:relative;z-index:1}
+body{margin:0;color:var(--tx);font:400 16px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
 a{color:inherit}button{font-family:inherit}
-:focus-visible{outline:3px solid var(--ink);outline-offset:3px;border-radius:8px}
-.wrap{width:100%;max-width:1040px;margin:0 auto;padding:0 20px}
-header{position:sticky;top:0;z-index:20;background:rgba(243,240,232,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
-.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;height:62px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px;letter-spacing:.03em;text-decoration:none;min-width:0}
-.logo i{flex:none;width:32px;height:32px;border-radius:10px;background:var(--ink);display:grid;place-items:center}
-.logo i svg{width:17px;height:17px;stroke:var(--lime);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
-.logo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-nav.top{display:flex;gap:20px;font-size:14px;font-weight:500}
-nav.top a{text-decoration:none;color:var(--mut);transition:color .2s}nav.top a:hover{color:var(--ink)}
-@media(max-width:720px){nav.top{display:none}}
-.hero{padding:54px 0 40px;text-align:center}
-.eyebrow{display:inline-block;font-size:13px;font-weight:700;padding:6px 14px;border:1.5px solid var(--ink);border-radius:99px;background:var(--lime);margin-bottom:22px}
-h1{margin:0 auto 16px;max-width:760px;font-weight:800;font-size:clamp(34px,7.2vw,68px);line-height:1.12;letter-spacing:-.02em}
-h1 mark{background:var(--lime);color:var(--ink);padding:0 .14em;border-radius:.16em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
-.lead{max-width:540px;margin:0 auto 32px;color:var(--mut);font-size:17px}
-.tool{max-width:680px;margin:0 auto;text-align:left;background:var(--card);border:2px solid var(--ink);border-radius:26px;padding:16px;box-shadow:7px 7px 0 var(--ink)}
-.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px}
-.tab{min-width:0;border:1.5px solid var(--line);background:#f7f5ef;color:var(--mut);font-weight:700;font-size:13px;padding:11px 4px;border-radius:14px;cursor:pointer;white-space:nowrap;transition:background .2s,color .2s,border-color .2s,transform .15s}
-.tab:hover{border-color:var(--ink);color:var(--ink)}
-.tab[aria-selected=true]{background:var(--ink);color:var(--lime);border-color:var(--ink)}
-.tab:active{transform:scale(.96)}
+:focus-visible{outline:2px solid var(--a);outline-offset:3px;border-radius:12px}
+.lg{display:block;flex:none;width:24px;height:24px}
+.wrap{width:100%;max-width:1060px;margin:0 auto;padding:0 22px}
+.aur{position:fixed;inset:0;z-index:-1;overflow:hidden;contain:strict;pointer-events:none}
+.aur i{position:absolute;width:75vmax;height:75vmax;border-radius:50%;will-change:transform;animation:dr 28s ease-in-out infinite alternate}
+.aur i:nth-child(1){left:-30vmax;top:-45vmax;background:radial-gradient(closest-side,color-mix(in srgb,var(--a) 30%,transparent),transparent)}
+.aur i:nth-child(2){right:-35vmax;top:-40vmax;background:radial-gradient(closest-side,color-mix(in srgb,var(--b) 26%,transparent),transparent);animation-duration:34s;animation-direction:alternate-reverse}
+@keyframes dr{to{transform:translate3d(9vmax,7vmax,0) scale(1.12)}}
+.off .aur i,.off .orb{animation-play-state:paused}
+
+header{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:0;right:0;z-index:30;pointer-events:none}
+header .wrap{max-width:980px}
+.bar{pointer-events:auto;display:flex;align-items:center;justify-content:space-between;gap:16px;height:56px;padding:0 8px 0 22px;border-radius:99px;background:rgba(12,14,22,.74);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.logo{font-size:13px;font-weight:300;letter-spacing:.05em;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.logo b{font-weight:800;letter-spacing:.08em}
+nav.top{display:flex;align-items:center;gap:24px;font-size:14px;font-weight:500}
+nav.top a{text-decoration:none;color:var(--mut);transition:color .2s}nav.top a:hover{color:var(--tx)}
+nav.top .mini{color:#05060a;font-weight:700;padding:9px 18px;border-radius:99px;background:linear-gradient(100deg,var(--a),var(--b))}
+nav.top .mini:hover{color:#05060a;filter:brightness(1.1)}
+@media(max-width:820px){nav.top a:not(.mini){display:none}}
+
+.hero{position:relative;padding:150px 0 30px;text-align:center}
+.badge{position:relative;display:inline-flex;align-items:center;gap:10px;padding:7px 16px 7px 14px;border-radius:99px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:13px;color:var(--mut);margin-bottom:28px;white-space:nowrap;animation:fade 1s both}
+.badge i{position:relative;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.badge i::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--ok);animation:ping 2.2s ease-out infinite}
+@keyframes ping{to{transform:scale(3.4);opacity:0}}
+@keyframes fade{from{opacity:0}}
+h1{margin:0 auto 24px;font-weight:800;font-size:clamp(24px,calc((100vw - 44px)/11.6),78px);line-height:1.2;letter-spacing:-.02em;white-space:nowrap}
+.ln{display:block;overflow:hidden;padding:.05em 0 .24em;margin-bottom:-.14em}
+.ln>span{display:block;line-height:1.25;padding-bottom:.1em;animation:rise 1.1s var(--ease) both}
+.ln:nth-child(2)>span{animation-delay:.12s;background:linear-gradient(100deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes rise{from{transform:translate3d(0,110%,0)}}
+.lead{max-width:540px;margin:0 auto 44px;color:var(--mut);font-size:18px;font-weight:300;animation:up 1s .3s var(--ease) both}
+@keyframes up{from{opacity:0;transform:translate3d(0,26px,0)}}
+
+.orb{position:absolute;display:none;width:66px;height:66px;padding:0;border:0;background:none;border-radius:21px;cursor:pointer;box-shadow:0 24px 44px -14px rgba(0,0,0,.9);animation:fade 1.4s .8s both,fl 7s ease-in-out infinite alternate}
+.orb .lg{width:100%;height:100%}
+.o1{left:1%;top:210px}.o2{left:8%;top:440px;animation-delay:.95s,-3s;width:56px;height:56px}.o3{right:2%;top:230px;animation-delay:1.1s,-5s;width:60px;height:60px}.o4{right:9%;top:450px;animation-delay:1.25s,-2s}
+@keyframes fl{from{transform:translate3d(0,0,0) rotate(-5deg)}to{transform:translate3d(0,-24px,0) rotate(6deg)}}
+@media(min-width:1060px){.orb{display:block}}
+
+.tool{position:relative;max-width:720px;margin:0 auto;text-align:left;padding:14px;border-radius:32px;border:1px solid transparent;
+background:linear-gradient(var(--card),var(--card)) padding-box,radial-gradient(440px circle at var(--mx,50%) var(--my,0%),color-mix(in srgb,var(--a) 85%,transparent),rgba(255,255,255,.1) 60%) border-box;
+box-shadow:0 60px 110px -50px color-mix(in srgb,var(--a) 55%,transparent),0 30px 60px -30px #000;animation:up 1.1s .4s var(--ease) both}
+.tabs{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:5px;margin-bottom:12px;background:#06070c;border:1px solid var(--line);border-radius:22px}
+#ind{position:absolute;top:5px;bottom:5px;left:5px;width:calc((100% - 10px)/4);border-radius:17px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--a) 55%,transparent);transition:transform .55s var(--ease)}
+.tab{position:relative;z-index:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:9px;border:0;background:transparent;color:var(--mut);font-weight:600;font-size:14px;padding:13px 6px;border-radius:17px;cursor:pointer;white-space:nowrap;transition:color .25s}
+.tab .lg{width:22px;height:22px;opacity:.55;transition:opacity .3s,transform .5s var(--ease)}
+.tab:hover{color:var(--tx)}.tab:hover .lg{opacity:.95}
+.tab[aria-selected=true]{color:var(--tx)}.tab[aria-selected=true] .lg{opacity:1;transform:scale(1.12)}
 form{display:flex;flex-direction:column;gap:10px}
 .field{display:flex;gap:8px}
-input{flex:1;min-width:0;width:100%;height:54px;border:1.5px solid var(--line);border-radius:16px;background:#f7f5ef;color:var(--ink);font:400 16px var(--sans);padding:0 16px;outline:0;transition:border-color .2s,background .2s}
-input::placeholder{color:#9a968a}
-input:focus{border-color:var(--ink);background:#fff}
+input{flex:1;min-width:0;width:100%;height:62px;border:1px solid var(--line);border-radius:19px;background:#06070c;color:var(--tx);font:400 16px var(--sans);padding:0 20px;outline:0;transition:border-color .25s,box-shadow .25s}
+input::placeholder{color:var(--dim)}
+input:focus{border-color:color-mix(in srgb,var(--a) 75%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--a) 16%,transparent)}
 form.err input{border-color:var(--bad);animation:shake .4s}
 @keyframes shake{25%,75%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
-.btn{border:0;cursor:pointer;font-weight:800;font-size:15px;border-radius:16px;height:54px;padding:0 22px;transition:transform .15s,box-shadow .2s,opacity .2s}
-.btn:active{transform:scale(.97)}.btn:disabled{opacity:.55;pointer-events:none}
-.paste{flex:none;background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
-.paste:hover{background:var(--lime)}
-.go{background:var(--ink);color:var(--lime);width:100%;font-size:16px}
-.go:hover{box-shadow:0 8px 0 -2px rgba(20,19,15,.25);transform:translateY(-2px)}
-.prog{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:14px;display:none}
+.btn{position:relative;overflow:hidden;border:0;cursor:pointer;font-weight:800;font-size:15px;border-radius:19px;height:62px;padding:0 24px;transition:transform .2s var(--ease),filter .2s,opacity .2s,background .2s}
+.btn:active{transform:scale(.97)}.btn:disabled{opacity:.6;pointer-events:none}
+.paste{flex:none;background:rgba(255,255,255,.07);color:var(--tx);border:1px solid var(--line);font-weight:600}
+.paste:hover{background:rgba(255,255,255,.13)}
+.go{width:100%;font-size:17px;color:#05060a;background:linear-gradient(100deg,var(--a),var(--b));box-shadow:0 16px 36px -14px color-mix(in srgb,var(--b) 75%,transparent)}
+.go::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);transform:translateX(-130%);transition:transform .9s var(--ease)}
+.go:hover::after{transform:translateX(130%)}
+.prog{height:4px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:16px;display:none}
 .prog.on{display:block}
-.prog i{display:block;height:100%;width:0;background:var(--ink);border-radius:99px;transition:width .5s cubic-bezier(.3,.7,.2,1)}
-.hint{min-height:22px;margin:12px 4px 2px;font-size:14px;color:var(--mut);overflow-wrap:anywhere}
-.hint b{color:var(--ok)}.hint.bad{color:var(--bad);font-weight:500}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--a),var(--b));border-radius:99px;transition:width .5s var(--ease)}
+.hint{min-height:24px;margin:14px 6px 4px;font-size:14px;color:var(--mut);overflow-wrap:anywhere}
+.hint b{color:var(--ok);font-weight:600}.hint.bad{color:var(--bad)}
+.trust{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 28px;margin:30px 0 0;padding:0;list-style:none;color:var(--mut);font-size:14px;animation:fade 1s 1s both}
+.trust li{display:flex;align-items:center;gap:8px}
+.trust svg{width:16px;height:16px;stroke:var(--ok);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
 #result{display:none}
-#result.show{display:block;animation:pop .5s cubic-bezier(.2,.9,.3,1.1)}
-@keyframes pop{from{opacity:0;transform:translateY(16px)}}
-.card{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;margin-top:10px;padding:14px;border-radius:20px;background:#f7f5ef;border:1.5px solid var(--line)}
-@media(max-width:560px){.card{grid-template-columns:1fr}.thumb{max-height:220px;aspect-ratio:16/9!important}}
-.thumb{position:relative;aspect-ratio:9/12;border-radius:14px;overflow:hidden;display:grid;place-items:center;font-weight:800;font-size:40px;background:var(--ink);color:var(--lime)}
+#result.show{display:block;animation:up .6s var(--ease)}
+.card{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;margin-top:10px;padding:14px;border-radius:24px;background:#06070c;border:1px solid var(--line)}
+@media(max-width:560px){.card{grid-template-columns:1fr}.thumb{max-height:190px;aspect-ratio:16/9!important}}
+.thumb{position:relative;aspect-ratio:9/12;border-radius:17px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(145deg,color-mix(in srgb,var(--a) 30%,#10121c),color-mix(in srgb,var(--b) 26%,#10121c))}
+.thumb .lg{width:54px;height:54px}
 .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.thumb small{position:absolute;z-index:1;bottom:8px;right:8px;font-size:12px;font-weight:700;background:var(--ink);color:#fff;padding:2px 8px;border-radius:8px}
-.card h3{margin:0 0 2px;font-weight:800;font-size:17px;line-height:1.35;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.meta{color:var(--mut);font-size:14px;margin-bottom:12px}
+.thumb small{position:absolute;z-index:1;bottom:8px;right:8px;font-size:12px;font-weight:600;background:rgba(0,0,0,.65);color:#fff;padding:2px 9px;border-radius:99px}
+.card h3{margin:0 0 2px;font-weight:700;font-size:17px;line-height:1.4;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{color:var(--mut);font-size:14px;margin-bottom:14px}
 .fmts{display:grid;gap:8px}
-.fmt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 8px 8px 14px;border-radius:14px;background:#fff;border:1.5px solid var(--line);opacity:0;animation:rowin .4s forwards;font-weight:700;font-size:15px}
-@keyframes rowin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.fmt em{font-style:normal;font-weight:500;color:var(--mut);font-size:13px;margin-left:6px}
-.dl{height:40px;padding:0 16px;font-size:14px;border-radius:11px;background:var(--lime);color:var(--ink);border:1.5px solid var(--ink);flex:none}
-.dl:hover{background:var(--ink);color:var(--lime)}
-.hist{margin-top:14px;display:none}.hist.show{display:block}
-.hist h4{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--mut);display:flex;justify-content:space-between}
-.hist button{background:none;border:0;color:var(--ink);text-decoration:underline;cursor:pointer;font:inherit}
+.fmt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 8px 8px 16px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line);opacity:0;animation:rowin .5s var(--ease) forwards;font-weight:600;font-size:15px}
+@keyframes rowin{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+.fmt em{font-style:normal;font-weight:400;color:var(--mut);font-size:13px;margin-left:8px}
+.dl{height:40px;padding:0 18px;font-size:14px;border-radius:13px;background:linear-gradient(100deg,var(--a),var(--b));color:#05060a;flex:none}
+.hist{margin-top:16px;display:none}.hist.show{display:block}
+.hist h4{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--mut);display:flex;justify-content:space-between}
+.hist button{background:none;border:0;color:var(--tx);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit}
 .hist ul{margin:0;padding:0}
-.hist li{list-style:none;font-size:13px;color:var(--mut);padding:7px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.strip{margin-top:46px;border-block:2px solid var(--ink);background:var(--ink);color:var(--lime);overflow:hidden}
-.strip div{display:flex;width:max-content;animation:mq 26s linear infinite;font-weight:800;font-size:18px;padding:12px 0}
-.strip span{padding:0 22px;white-space:nowrap}
-@keyframes mq{to{transform:translateX(-50%)}}
-section{padding:72px 0 8px}
-h2{margin:0 0 10px;font-weight:800;font-size:clamp(26px,4.4vw,40px);line-height:1.2;letter-spacing:-.015em}
-.sub{color:var(--mut);max-width:560px;margin:0 0 32px}
-.plats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-.plat{padding:22px;border-radius:22px;border:2px solid var(--ink);background:var(--c);transition:transform .2s,box-shadow .2s}
-.plat:hover{transform:translate(-3px,-3px);box-shadow:5px 5px 0 var(--ink)}
-.badge{width:46px;height:46px;border-radius:14px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:800;font-size:17px;margin-bottom:14px}
-.plat h3{margin:0 0 4px;font-weight:800;font-size:19px}.plat p{margin:0;font-size:14px;color:rgba(20,19,15,.78)}
-.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;counter-reset:s}
-@media(max-width:820px){.steps{grid-template-columns:1fr 1fr}}
-@media(max-width:480px){.steps{grid-template-columns:1fr}}
-.step{position:relative;padding:22px;border-radius:22px;background:var(--card);border:2px solid var(--ink)}
-.step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--lime);border:2px solid var(--ink);font-weight:800;margin-bottom:12px}
-.step h3{margin:0 0 4px;font-weight:800;font-size:17px}.step p{margin:0;color:var(--mut);font-size:14px}
-.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
-.f{padding:22px;border-radius:22px;background:var(--card);border:1.5px solid var(--line);transition:border-color .2s,transform .2s}
-.f:hover{border-color:var(--ink);transform:translateY(-3px)}
-.f svg{width:30px;height:30px;stroke:var(--ink);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-bottom:10px}
-.f h3{margin:0 0 4px;font-weight:800;font-size:17px}.f p{margin:0;color:var(--mut);font-size:14px}
-details{border-bottom:1.5px solid var(--line);max-width:760px}
-summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 0;font-weight:700;font-size:17px}
+.hist li{list-style:none;font-size:13px;color:var(--dim);padding:8px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.rv{opacity:0;transform:translate3d(0,30px,0);transition:opacity .9s var(--ease),transform .9s var(--ease);transition-delay:var(--d,0s)}
+.rv.in{opacity:1;transform:none}
+section{padding:120px 0 0}
+h2{margin:0 0 12px;font-weight:800;font-size:clamp(28px,4.8vw,48px);line-height:1.15;letter-spacing:-.025em}
+.sub{color:var(--mut);max-width:540px;margin:0 0 48px;font-weight:300;font-size:17px}
+
+.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.pc{position:relative;display:flex;flex-direction:column;gap:14px;padding:26px 24px 28px;border-radius:28px;background:var(--card);border:1px solid var(--line);text-decoration:none;overflow:hidden;transition:transform .6s var(--ease),border-color .4s}
+.pc::before{content:"";position:absolute;inset:0;background:radial-gradient(320px circle at 50% -10%,color-mix(in srgb,var(--a) 38%,transparent),transparent 70%);opacity:0;transition:opacity .5s}
+.pc:hover{transform:translate3d(0,-8px,0);border-color:color-mix(in srgb,var(--a) 55%,transparent)}.pc:hover::before{opacity:1}
+.pc>*{position:relative}
+.pc .lg{width:54px;height:54px;margin-bottom:16px;transition:transform .6s var(--ease)}.pc:hover .lg{transform:scale(1.1) rotate(-5deg)}
+.pc h3{margin:0;font-weight:800;font-size:22px}.pc p{margin:0;color:var(--mut);font-size:14.5px}
+@media(max-width:900px){.pgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.pgrid{grid-template-columns:1fr}.pc{display:grid;grid-template-columns:54px 1fr;gap:2px 18px;padding:22px}.pc .lg{grid-row:span 2;margin:0}}
+
+.steps{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px;counter-reset:s}
+.steps::before{content:"";position:absolute;top:21px;left:21px;right:21px;height:1px;background:linear-gradient(90deg,var(--a),var(--b));opacity:.55;transform:scaleX(0);transform-origin:0 0;transition:transform 1.8s .3s var(--ease)}
+.steps.in::before{transform:none}
+.step{position:relative;padding-top:64px}
+.step::before{counter-increment:s;content:counter(s);position:absolute;top:0;left:0;z-index:1;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--bg);border:1px solid color-mix(in srgb,var(--a) 65%,transparent);font-weight:700}
+.step h3{margin:0 0 6px;font-weight:700;font-size:18px}.step p{margin:0;color:var(--mut);font-size:15px}
+@media(max-width:820px){.steps{grid-template-columns:1fr 1fr;row-gap:40px}.steps::before{display:none}}
+@media(max-width:480px){.steps{grid-template-columns:1fr;row-gap:30px}.step{padding:4px 0 0 60px}}
+
+.bento{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
+.b{position:relative;overflow:hidden;padding:30px;border-radius:28px;background:var(--card);border:1px solid var(--line);transition:border-color .4s}
+.b:hover{border-color:color-mix(in srgb,var(--a) 45%,transparent)}
+.b::after{content:"";position:absolute;right:-60px;bottom:-80px;width:240px;height:240px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--b) 22%,transparent),transparent);pointer-events:none}
+.b:nth-child(1),.b:nth-child(4){grid-column:span 4}.b:nth-child(2),.b:nth-child(3){grid-column:span 2}
+.ic{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--a),var(--b));margin-bottom:44px}
+.ic svg{width:26px;height:26px;stroke:#05060a;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.b h3{margin:0 0 6px;font-weight:700;font-size:20px}.b p{margin:0;color:var(--mut);font-size:15px;max-width:420px}
+@media(max-width:820px){.bento{grid-template-columns:1fr 1fr}.b:nth-child(n){grid-column:auto}}
+@media(max-width:560px){.bento{grid-template-columns:1fr}.ic{margin-bottom:28px}}
+
+details{border-bottom:1px solid var(--line);max-width:780px}
+details:first-of-type{border-top:1px solid var(--line)}
+summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:22px 0;font-weight:600;font-size:18px}
 summary::-webkit-details-marker{display:none}
-summary::after{content:"+";flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--lime);border:1.5px solid var(--ink);font-size:20px;line-height:1;transition:transform .3s}
-details[open] summary::after{transform:rotate(135deg)}
-details p{margin:0 0 18px;color:var(--mut);animation:rowin .4s forwards}
-footer{margin-top:72px;border-top:2px solid var(--ink);background:var(--ink);color:#bdb9ad;padding:34px 0 calc(40px + env(safe-area-inset-bottom,0px));font-size:14px;text-align:center}
-.fl{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 20px;margin-bottom:16px}
-.fl a{text-decoration:none}.fl a:hover{color:var(--lime)}
-footer b{color:#fff}
-#page{padding:44px 0 80px;min-height:70vh}.doc{max-width:760px}.doc p,.doc li{color:var(--mut)}.doc h2{margin-bottom:16px}
-.back{display:inline-block;margin-bottom:18px;font-weight:700;text-decoration:none;border-bottom:2px solid var(--lime)}
-.post{display:block;padding:18px 20px;margin-bottom:12px;border:2px solid var(--ink);border-radius:18px;background:var(--card);text-decoration:none;transition:transform .2s,box-shadow .2s}
-.post:hover{transform:translate(-3px,-3px);box-shadow:4px 4px 0 var(--ink)}
-.post b{display:block}.post span{color:var(--mut);font-size:14px}
-#toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140px);z-index:50;background:var(--ink);color:var(--lime);padding:12px 20px;border-radius:14px;font-weight:700;width:max-content;max-width:calc(100vw - 32px);text-align:center;transition:transform .45s cubic-bezier(.2,.9,.3,1.2)}
+summary::after{content:"";flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:linear-gradient(var(--tx),var(--tx)) center/12px 1.5px no-repeat,linear-gradient(var(--tx),var(--tx)) center/1.5px 12px no-repeat;transition:transform .5s var(--ease),border-color .3s}
+summary:hover::after{border-color:var(--a)}
+details[open] summary::after{transform:rotate(135deg);border-color:var(--a)}
+details p{margin:0 0 22px;color:var(--mut);max-width:640px;animation:rowin .5s var(--ease) forwards}
+
+.cta{margin-top:120px;text-align:center;padding:72px 24px;border-radius:36px;border:1px solid var(--line);background:radial-gradient(60% 130% at 50% 0%,color-mix(in srgb,var(--a) 22%,transparent),transparent 70%),var(--card)}
+.cta h2{margin-bottom:10px}.cta p{margin:0 auto 30px;max-width:420px;color:var(--mut);font-weight:300}
+.cta a{display:inline-block;color:#05060a;font-weight:800;text-decoration:none;padding:17px 34px;border-radius:19px;background:linear-gradient(100deg,var(--a),var(--b));transition:transform .4s var(--ease)}
+.cta a:hover{transform:translateY(-3px)}
+
+footer{margin-top:110px;border-top:1px solid var(--line);padding:44px 0 calc(48px + env(safe-area-inset-bottom,0px));font-size:14px;text-align:center;color:var(--dim)}
+.fl{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 24px;margin-bottom:22px}
+.fl a{text-decoration:none;color:var(--mut)}.fl a:hover{color:var(--tx)}
+footer b{color:var(--tx);letter-spacing:.06em}
+#page{padding:130px 0 90px;min-height:80vh}.doc{max-width:760px}.doc p,.doc li{color:var(--mut)}.doc h2{margin-bottom:18px}
+.back{display:inline-block;margin-bottom:22px;font-weight:600;text-decoration:none;color:var(--a)}.back:hover{opacity:.75}
+.post{display:block;padding:22px 4px;border-bottom:1px solid var(--line);text-decoration:none;transition:padding .4s var(--ease),background .3s}
+.post:first-of-type{border-top:1px solid var(--line)}
+.post:hover{padding-left:14px;background:rgba(255,255,255,.03)}
+.post b{display:block;font-weight:700;font-size:18px;margin-bottom:2px}
+.post span{color:var(--mut);font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140px);z-index:50;background:#f4f5fa;color:#05060a;padding:13px 22px;border-radius:16px;font-weight:600;font-size:14px;width:max-content;max-width:calc(100vw - 32px);text-align:center;box-shadow:0 18px 40px -10px rgba(0,0,0,.6);transition:transform .6s var(--ease)}
 #toast.on{transform:translate(-50%,0)}
-.r{opacity:0;transform:translateY(20px);transition:opacity .6s,transform .6s cubic-bezier(.2,.7,.2,1)}
-.r.in{opacity:1;transform:none}
-@media(max-width:520px){.hero{padding-top:36px}.tool{padding:12px;border-radius:22px;box-shadow:5px 5px 0 var(--ink)}.paste{padding:0 16px}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.r{opacity:1;transform:none}.strip div{animation:none}}
+@media(max-width:520px){.logo{font-size:10.5px;letter-spacing:.03em}.bar{gap:10px;padding:0 6px 0 16px}nav.top .mini{padding:8px 14px;font-size:13px}.hero{padding-top:118px}.lead{font-size:16px}.tool{padding:10px;border-radius:28px}.tabs{border-radius:19px;padding:4px}#ind{top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/4)}.tab{flex-direction:column;gap:6px;font-size:11.5px;padding:10px 2px}.paste{padding:0 16px}section{padding-top:88px}.cta{margin-top:88px;padding:56px 20px}}
+@media(max-width:370px){.logo{font-size:9.5px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.rv{opacity:1;transform:none}}
 </style>
 </head>
 <body>
-<header><div class="wrap bar">
-  <a class="logo" href="#top"><i><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg></i><span>MOON SOCIAL VIDEO DOWNLOAD</span></a>
-  <nav class="top"><a href="#platforms">პლატფორმები</a><a href="#how">როგორ მუშაობს</a><a href="#why">უპირატესობები</a><a href="#faq">კითხვები</a><a href="#/blog">ბლოგი</a></nav>
-</div></header>
+<div class="aur" aria-hidden="true"><i></i><i></i></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<defs>
+<radialGradient id="igr" cx=".3" cy="1.05" r="1.2"><stop offset="0" stop-color="#FED576"/><stop offset=".26" stop-color="#F47133"/><stop offset=".61" stop-color="#BC3081"/><stop offset="1" stop-color="#4C63D2"/></radialGradient>
+<path id="ttp" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+</defs>
+<symbol id="l-tiktok" viewBox="0 0 24 24"><rect width="24" height="24" rx="5.6" fill="#000"/><rect x=".4" y=".4" width="23.2" height="23.2" rx="5.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width=".8"/><g transform="translate(4.6 4.4) scale(.63)"><use href="#ttp" fill="#25F4EE" transform="translate(-.8 -.6)"/><use href="#ttp" fill="#FE2C55" transform="translate(.8 .6)"/><use href="#ttp" fill="#fff"/></g></symbol>
+<symbol id="l-instagram" viewBox="0 0 24 24"><rect width="24" height="24" rx="5.6" fill="url(#igr)"/><rect x="5.3" y="5.3" width="13.4" height="13.4" rx="4" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="15.8" cy="8.2" r=".95" fill="#fff"/></symbol>
+<symbol id="l-facebook" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#0866FF"/><path fill="#fff" d="M16.7 15.5l.5-3.2h-3.1V10.2c0-.9.4-1.7 1.8-1.7h1.4V5.8s-1.3-.2-2.5-.2c-2.5 0-4.2 1.5-4.2 4.3v2.4H7.1v3.2h2.5V24h3.1v-8.5z"/></symbol>
+<symbol id="l-x" viewBox="0 0 24 24"><rect width="24" height="24" rx="5.6" fill="#000"/><rect x=".4" y=".4" width="23.2" height="23.2" rx="5.2" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width=".8"/><path fill="#fff" transform="translate(5.2 5.4) scale(.6)" d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></symbol>
+</svg>
+
+<header><div class="wrap"><div class="bar">
+  <a class="logo" href="#top"><b>MOON</b> SOCIAL VIDEO DOWNLOAD</a>
+  <nav class="top"><a href="#platforms">პლატფორმები</a><a href="#how">როგორ მუშაობს</a><a href="#faq">კითხვები</a><a href="#/blog">ბლოგი</a><a class="mini" href="#top">დაწყება</a></nav>
+</div></div></header>
 
 <main id="top">
 <div class="wrap">
   <div class="hero">
-    <span class="eyebrow">უფასოდ · რეგისტრაციის გარეშე</span>
-    <h1>ჩასვი ბმული, <mark>გადმოწერე</mark> ვიდეო.</h1>
-    <p class="lead">TikTok, Instagram, Facebook და X-ის საჯარო ვიდეოები ერთ ადგილას, MP4 ან MP3 ფორმატით.</p>
+    <button class="orb o1" data-go="tiktok" aria-label="TikTok"><svg class="lg"><use href="#l-tiktok"/></svg></button>
+    <button class="orb o2" data-go="instagram" aria-label="Instagram"><svg class="lg"><use href="#l-instagram"/></svg></button>
+    <button class="orb o3" data-go="facebook" aria-label="Facebook"><svg class="lg"><use href="#l-facebook"/></svg></button>
+    <button class="orb o4" data-go="x" aria-label="X"><svg class="lg"><use href="#l-x"/></svg></button>
+    <div class="badge"><i></i>უფასო, რეგისტრაციის გარეშე</div>
+    <h1><span class="ln"><span>ჩასვი ბმული და</span></span><span class="ln"><span>გადმოწერე ვიდეო</span></span></h1>
+    <p class="lead">TikTok-ის, Instagram-ის, Facebook-ისა და X-ის საჯარო ვიდეოები ერთ ადგილას, MP4 ან MP3 ფორმატით.</p>
     <div class="tool">
-      <div class="tabs" role="tablist" id="tabs">
-        <button class="tab" role="tab" data-p="tiktok" aria-selected="true">TikTok</button>
-        <button class="tab" role="tab" data-p="instagram" aria-selected="false">Instagram</button>
-        <button class="tab" role="tab" data-p="facebook" aria-selected="false">Facebook</button>
-        <button class="tab" role="tab" data-p="x" aria-selected="false">X</button>
+      <div class="tabs" role="tablist"><span id="ind"></span>
+        <button class="tab" role="tab" data-p="tiktok" aria-selected="true"><svg class="lg"><use href="#l-tiktok"/></svg>TikTok</button>
+        <button class="tab" role="tab" data-p="instagram" aria-selected="false"><svg class="lg"><use href="#l-instagram"/></svg>Instagram</button>
+        <button class="tab" role="tab" data-p="facebook" aria-selected="false"><svg class="lg"><use href="#l-facebook"/></svg>Facebook</button>
+        <button class="tab" role="tab" data-p="x" aria-selected="false"><svg class="lg"><use href="#l-x"/></svg>X</button>
       </div>
       <form id="form" novalidate>
         <div class="field">
-          <input id="url" type="url" inputmode="url" autocomplete="off" aria-label="ვიდეოს ბმული" placeholder="ჩასვი TikTok-ის ბმული აქ">
+          <input id="url" type="url" inputmode="url" autocomplete="off" aria-label="ვიდეოს ბმული" placeholder="ჩასვი ბმული აქ">
           <button type="button" class="btn paste" id="paste">ჩასმა</button>
         </div>
         <button class="btn go" id="go">გადმოწერა</button>
       </form>
       <div class="prog" id="prog"><i id="bar"></i></div>
-      <div class="hint" id="hint" aria-live="polite">მხოლოდ საჯარო ვიდეოების ბმულები მუშაობს.</div>
+      <div class="hint" id="hint" aria-live="polite">მუშაობს მხოლოდ საჯარო ვიდეოების ბმულებზე.</div>
       <div id="result"></div>
       <div class="hist" id="hist"><h4><span>ბოლო ბმულები</span><button id="clr" type="button">გასუფთავება</button></h4><ul id="hl"></ul></div>
     </div>
   </div>
 </div>
 
-<div class="strip" aria-hidden="true"><div>
-  <span>TikTok</span><span>★</span><span>Instagram</span><span>★</span><span>Facebook</span><span>★</span><span>X</span><span>★</span>
-  <span>TikTok</span><span>★</span><span>Instagram</span><span>★</span><span>Facebook</span><span>★</span><span>X</span><span>★</span>
-</div></div>
-
 <section id="platforms"><div class="wrap">
-  <h2 class="r">ოთხი პლატფორმა, ერთი ველი</h2>
-  <p class="sub r">საიტი თავად ცნობს, რომელი პლატფორმის ბმული ჩასვი და შესაბამის ფორმატებს გაჩვენებს.</p>
-  <div class="plats">
-    <div class="plat r" style="--c:#ffb3c7"><div class="badge">Tt</div><h3>TikTok</h3><p>ვიდეოები საუკეთესო ხარისხით, ან მხოლოდ ხმა MP3-ად.</p></div>
-    <div class="plat r" style="--c:#e2c4ff"><div class="badge">Ig</div><h3>Instagram</h3><p>Reels და საჯარო ვიდეო პოსტები ერთ დაკლიკებაში.</p></div>
-    <div class="plat r" style="--c:#b8d4ff"><div class="badge">f</div><h3>Facebook</h3><p>საჯარო ვიდეოები და Reels, HD ან სტანდარტული ხარისხით.</p></div>
-    <div class="plat r" style="--c:#d4ff3a"><div class="badge">X</div><h3>X</h3><p>ვიდეოები და GIF-ები ტვიტებიდან მარტივად.</p></div>
+  <h2 class="rv">ოთხი პლატფორმა, ერთი ველი</h2>
+  <p class="sub rv" style="--d:.08s">საიტი ავტომატურად ამოიცნობს, რომელი პლატფორმის ბმული ჩასვი, და შესაბამის ფორმატებს გაჩვენებს.</p>
+  <div class="pgrid">
+    <a class="pc rv" href="#top" data-go="tiktok" style="--a:#25f4ee;--d:.05s"><svg class="lg"><use href="#l-tiktok"/></svg><h3>TikTok</h3><p>ვიდეო საუკეთესო ხარისხით ან მხოლოდ ხმა MP3 ფორმატით.</p></a>
+    <a class="pc rv" href="#top" data-go="instagram" style="--a:#f47133;--d:.12s"><svg class="lg"><use href="#l-instagram"/></svg><h3>Instagram</h3><p>Reels და საჯარო ვიდეოპოსტები ერთი დაწკაპუნებით.</p></a>
+    <a class="pc rv" href="#top" data-go="facebook" style="--a:#4f9bff;--d:.19s"><svg class="lg"><use href="#l-facebook"/></svg><h3>Facebook</h3><p>საჯარო ვიდეოები და Reels HD ან სტანდარტული ხარისხით.</p></a>
+    <a class="pc rv" href="#top" data-go="x" style="--a:#ffffff;--d:.26s"><svg class="lg"><use href="#l-x"/></svg><h3>X</h3><p>ვიდეოები და GIF-ები ტვიტებიდან.</p></a>
   </div>
 </div></section>
 
 <section id="how"><div class="wrap">
-  <h2 class="r">როგორ მუშაობს</h2>
-  <p class="sub r">ოთხი ნაბიჯი, რომელიც რამდენიმე წამს გრძელდება.</p>
-  <div class="steps">
-    <div class="step r"><h3>დააკოპირე</h3><p>პლატფორმაზე ვიდეოს ქვეშ აირჩიე „გაზიარება“ და დააკოპირე ბმული.</p></div>
-    <div class="step r"><h3>ჩასვი</h3><p>დააჭირე „ჩასმას“ ან ხელით ჩაწერე ბმული ველში.</p></div>
-    <div class="step r"><h3>აირჩიე ხარისხი</h3><p>1080p, 720p, 480p ან მხოლოდ აუდიო.</p></div>
-    <div class="step r"><h3>შეინახე</h3><p>ფაილი პირდაპირ შენს მოწყობილობაში ინახება.</p></div>
+  <h2 class="rv">როგორ მუშაობს</h2>
+  <p class="sub rv" style="--d:.08s">ოთხი მარტივი ნაბიჯი და ვიდეო შენს მოწყობილობაშია.</p>
+  <div class="steps rv">
+    <div class="step"><h3>დააკოპირე</h3><p>პლატფორმაზე ვიდეოს ქვეშ დააჭირე „გაზიარებას“ და დააკოპირე ბმული.</p></div>
+    <div class="step"><h3>ჩასვი</h3><p>დააჭირე „ჩასმას“ ან ბმული ველში ხელით ჩაწერე.</p></div>
+    <div class="step"><h3>აირჩიე ხარისხი</h3><p>1080p, 720p, 480p ან მხოლოდ აუდიო.</p></div>
+    <div class="step"><h3>შეინახე</h3><p>ფაილი პირდაპირ შენს მოწყობილობაში შეინახება.</p></div>
   </div>
 </div></section>
 
 <section id="why"><div class="wrap">
-  <h2 class="r">რატომ ეს საიტი</h2>
-  <p class="sub r">მარტივი ინტერფეისი, რომელიც არაფერს გიშლის ხელს.</p>
-  <div class="feat">
-    <div class="f r"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><h3>სწრაფი</h3><p>ბმულის ჩასმიდან ჩამოტვირთვამდე რამდენიმე წამი.</p></div>
-    <div class="f r"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><h3>კონფიდენციალური</h3><p>ანგარიში არ გჭირდება, ისტორია მხოლოდ შენს ბრაუზერში ინახება.</p></div>
-    <div class="f r"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><h3>ყველა მოწყობილობაზე</h3><p>ტელეფონზე, პლანშეტზე და კომპიუტერზე ერთნაირად მუშაობს.</p></div>
-    <div class="f r"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><h3>MP3 ფორმატი</h3><p>თუ მხოლოდ ხმა გჭირდება, აირჩიე აუდიო.</p></div>
+  <h2 class="rv">რატომ ეს საიტი</h2>
+  <p class="sub rv" style="--d:.08s">მარტივი ინტერფეისი, რომელიც არაფერში გიშლის ხელს.</p>
+  <div class="bento">
+    <div class="b rv"><div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div><h3>სწრაფია</h3><p>ბმულის ჩასმიდან გადმოწერამდე რამდენიმე წამი გჭირდება.</p></div>
+    <div class="b rv" style="--d:.1s"><div class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h3>კონფიდენციალურია</h3><p>ანგარიში არ გჭირდება, ისტორია კი მხოლოდ შენს ბრაუზერში ინახება.</p></div>
+    <div class="b rv"><div class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div><h3>ყველა მოწყობილობაზე</h3><p>ტელეფონზე, პლანშეტზე და კომპიუტერზე ერთნაირად კომფორტულად გამოიყენება.</p></div>
+    <div class="b rv" style="--d:.1s"><div class="ic"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3>MP3 ფორმატი</h3><p>თუ მხოლოდ ხმა გჭირდება, აირჩიე აუდიო და ფაილი გაცილებით მცირე იქნება.</p></div>
   </div>
 </div></section>
 
 <section id="faq"><div class="wrap">
-  <h2 class="r">ხშირი კითხვები</h2>
-  <div class="r">
-    <details><summary>საჭიროა რეგისტრაცია?</summary><p>არა. არც ანგარიში გჭირდება, არც აპლიკაციის დაყენება.</p></details>
-    <details><summary>ვიდეოს ხარისხი უარესდება?</summary><p>არა. ვიდეო იმ ხარისხით იწერება, რომელსაც პლატფორმა გვაძლევს, ხოლო ფორმატს შენ ირჩევ.</p></details>
-    <details><summary>პირადი ან დახურული ანგარიშის ვიდეოს გადმოვწერ?</summary><p>ვერა. მუშაობს მხოლოდ საჯარო ვიდეოებზე.</p></details>
-    <details><summary>კანონიერია?</summary><p>გადმოწერე მხოლოდ პირადი, არაკომერციული გამოყენებისთვის. ვიდეოს გავრცელებამდე ავტორისგან ნებართვა გჭირდება.</p></details>
+  <h2 class="rv">ხშირი კითხვები</h2>
+  <p class="sub rv" style="--d:.08s">მოკლე პასუხები იმაზე, რასაც ყველაზე ხშირად გვეკითხებიან.</p>
+  <div class="rv">
+    <details><summary>რეგისტრაცია საჭიროა?</summary><p>არა. არც ანგარიში გჭირდება, არც აპლიკაციის დაყენება.</p></details>
+    <details><summary>ვიდეოს ხარისხი გაუარესდება?</summary><p>არა. ვიდეო იმ ხარისხით ინახება, რომელსაც პლატფორმა გვთავაზობს; ფორმატს კი შენ ირჩევ.</p></details>
+    <details><summary>შემიძლია დახურული ანგარიშის ვიდეოს გადმოწერა?</summary><p>არა. სერვისი მხოლოდ საჯარო ვიდეოებთან მუშაობს.</p></details>
+    <details><summary>ეს კანონიერია?</summary><p>ვიდეო გადმოწერე მხოლოდ პირადი, არაკომერციული გამოყენებისთვის. გავრცელებამდე ავტორისგან ნებართვა უნდა აიღო.</p></details>
   </div>
+  <div class="cta rv"><h2>მზად ხარ?</h2><p>ჩასვი ბმული და ვიდეო რამდენიმე წამში შენს მოწყობილობაში იქნება.</p><a href="#top">ბმულის ჩასმა</a></div>
 </div></section>
 </main>
 <div id="page" hidden></div>
 
-<footer><div class="wrap"><nav class="fl"><a href="#/about">ჩვენ შესახებ</a><a href="#/blog">ბლოგი</a><a href="#/privacy">კონფიდენციალურობა</a><a href="#/terms">პირობები</a><a href="#/dmca">DMCA</a><a href="#/cookies">ქუქიები</a><a href="#/disclaimer">პასუხისმგებლობა</a><a href="#/contact">კონტაქტი</a></nav><b>MOON SOCIAL VIDEO DOWNLOAD</b><br>პატივი ეცი ავტორის უფლებებს და გადმოწერე მხოლოდ პირადი გამოყენებისთვის.</div></footer>
+<footer><div class="wrap"><nav class="fl"><a href="#/about">ჩვენ შესახებ</a><a href="#/blog">ბლოგი</a><a href="#/privacy">კონფიდენციალურობა</a><a href="#/terms">პირობები</a><a href="#/dmca">DMCA</a><a href="#/cookies">ქუქიები</a><a href="#/disclaimer">პასუხისმგებლობა</a><a href="#/contact">კონტაქტი</a></nav><b>MOON SOCIAL VIDEO DOWNLOAD</b><br>პატივი ეცი ავტორის უფლებებს და ვიდეო მხოლოდ პირადი გამოყენებისთვის გადმოწერე.</div></footer>
 <div id="toast" role="status"></div>
 
 <script>
 (()=>{
 const API_URL="/api/extract";let live=false;fetch("/api/health").then(r=>{live=r.ok}).catch(()=>{});
-const $=s=>document.querySelector(s), RM=matchMedia("(prefers-reduced-motion:reduce)").matches;
-const P={tiktok:{n:"TikTok",h:/(^|\.)tiktok\.com$/},
-instagram:{n:"Instagram",h:/(^|\.)instagram\.com$/},
-facebook:{n:"Facebook",h:/(^|\.)(facebook\.com|fb\.watch)$/},
-x:{n:"X",h:/(^|\.)(x\.com|twitter\.com)$/}};
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],RM=matchMedia("(prefers-reduced-motion:reduce)").matches,root=document.documentElement;
+const P={tiktok:{n:"TikTok",h:/(^|\.)tiktok\.com$/,a:"#25f4ee",b:"#fe2c55"},
+instagram:{n:"Instagram",h:/(^|\.)instagram\.com$/,a:"#fdb35c",b:"#e1306c"},
+facebook:{n:"Facebook",h:/(^|\.)(facebook\.com|fb\.watch)$/,a:"#5aa2ff",b:"#0866ff"},
+x:{n:"X",h:/(^|\.)(x\.com|twitter\.com)$/,a:"#ffffff",b:"#8b93a7"}};
+const keys=Object.keys(P),detect=u=>{try{const h=new URL(u).hostname;return keys.find(k=>P[k].h.test(h))||null}catch(e){return null}};
+const logo=k=>'<svg class="lg"><use href="#l-'+k+'"/></svg>';
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),3200)};
-const detect=u=>{try{const h=new URL(u).hostname;return Object.keys(P).find(k=>P[k].h.test(h))||null}catch(e){return null}};
 
 /* tabs */
-let cur="tiktok";
-const tabs=[...document.querySelectorAll(".tab")],url=$("#url"),hint=$("#hint");
-function sel(k){cur=k;tabs.forEach(t=>t.setAttribute("aria-selected",t.dataset.p===k));url.placeholder="ჩასვი "+P[k].n+"-ის ბმული აქ"}
-tabs.forEach(t=>t.onclick=()=>sel(t.dataset.p));sel(cur);
-url.addEventListener("input",()=>{const d=detect(url.value.trim());hint.className="hint";if(d){sel(d);hint.innerHTML="აღმოჩენილია: <b>"+P[d].n+"</b>"}else hint.textContent="მხოლოდ საჯარო ვიდეოების ბმულები მუშაობს."});
-$("#paste").onclick=async()=>{try{url.value=(await navigator.clipboard.readText()).trim();url.dispatchEvent(new Event("input"))}catch(e){toast("ჩასმა ვერ მოხერხდა. გამოიყენე ხანგრძლივი დაჭერა ველში.");url.focus()}};
+const tabs=$$(".tab"),url=$("#url"),hint=$("#hint"),ind=$("#ind");
+function sel(k){tabs.forEach(t=>t.setAttribute("aria-selected",t.dataset.p===k));ind.style.transform="translate3d("+keys.indexOf(k)*100+"%,0,0)";root.style.setProperty("--a",P[k].a);root.style.setProperty("--b",P[k].b)}
+tabs.forEach(t=>t.onclick=()=>sel(t.dataset.p));sel("tiktok");
+const toField=()=>{const r=url.getBoundingClientRect();let d=false;const f=()=>{if(d)return;d=true;url.focus({preventScroll:true})};
+if(Math.abs(r.top+r.height/2-innerHeight/2)<10)return f();
+url.scrollIntoView({behavior:RM?"auto":"smooth",block:"center"});addEventListener("scrollend",f,{once:true});setTimeout(f,1200)};
+$$("[data-go]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();sel(a.dataset.go);toField()}));
+$$(".mini,.cta a").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();toField()}));
+url.addEventListener("input",()=>{const d=detect(url.value.trim());hint.className="hint";if(d){sel(d);hint.innerHTML="აღმოჩენილია: <b>"+P[d].n+"</b>"}else hint.textContent="მუშაობს მხოლოდ საჯარო ვიდეოების ბმულებზე."});
+$("#paste").onclick=async()=>{try{url.value=(await navigator.clipboard.readText()).trim();url.dispatchEvent(new Event("input"))}catch(e){toast("ჩასმა ვერ მოხერხდა. ბმული ველში ხელით ჩასვი.");url.focus()}};
+
+/* fx: spotlight, reveal, pause offscreen */
+const tool=$(".tool");
+if(matchMedia("(hover:hover)").matches&&!RM){let f=0;tool.addEventListener("pointermove",e=>{if(f)return;f=requestAnimationFrame(()=>{f=0;const r=tool.getBoundingClientRect();tool.style.setProperty("--mx",e.clientX-r.left+"px");tool.style.setProperty("--my",e.clientY-r.top+"px")})})}
+if("IntersectionObserver"in window){
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}}),{rootMargin:"0px 0px -8% 0px"});
+$$(".rv").forEach(el=>io.observe(el));
+new IntersectionObserver(([e])=>root.classList.toggle("off",!e.isIntersecting)).observe($(".hero"))}
+else $$(".rv").forEach(el=>el.classList.add("in"));
+document.addEventListener("visibilitychange",()=>root.classList.toggle("off",document.hidden));
 
 /* flow */
 const form=$("#form"),go=$("#go"),res=$("#result"),prog=$("#prog"),bar=$("#bar");
@@ -239,22 +323,21 @@ const steps=[["ბმულის შემოწმება",.25],["ვიდ�
 form.addEventListener("submit",async e=>{e.preventDefault();
   const v=url.value.trim(),d=detect(v);
   if(!d){form.classList.remove("err");void form.offsetWidth;form.classList.add("err");hint.className="hint bad";
-    hint.textContent=v?"ეს ბმული არ ემთხვევა მხარდაჭერილ პლატფორმას. გამოიყენე TikTok, Instagram, Facebook ან X.":"ჯერ ჩასვი ვიდეოს ბმული.";return}
-  go.disabled=true;res.className="";res.innerHTML="";hint.className="hint";bar.style.width="0";prog.classList.add("on");
+    hint.textContent=v?"ეს ბმული მხარდაჭერილ პლატფორმას არ მიეკუთვნება. გამოიყენე TikTok-ის, Instagram-ის, Facebook-ის ან X-ის ბმული.":"ჯერ ვიდეოს ბმული ჩასვი.";return}
+  go.disabled=true;go.textContent="მუშავდება...";res.className="";res.innerHTML="";hint.className="hint";bar.style.width="0";prog.classList.add("on");
   let data=null,fail=false;
   const job=live?fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>data=j).catch(()=>fail=true):null;
   for(let i=0;i<steps.length;i++){
     if(i===3&&job)await job;
     hint.innerHTML="<b>"+steps[i][0]+"</b>"+(i<3?"...":"");bar.style.width=(steps[i][1]*100)+"%";await sleep(i===3?150:550)}
-  prog.classList.remove("on");
-  if(fail){go.disabled=false;hint.className="hint bad";hint.textContent="ვიდეო ვერ მოიძებნა. შეამოწმე, რომ ვიდეო საჯაროა და სცადე თავიდან.";return}
+  prog.classList.remove("on");go.disabled=false;go.textContent="გადმოწერა";
+  if(fail){hint.className="hint bad";hint.textContent="ვიდეო ვერ მოიძებნა. შეამოწმე, საჯაროა თუ არა, და სცადე ხელახლა.";return}
   data=data||{title:P[d].n+"-ის ვიდეო (დემო)",duration:"0:24",formats:[{label:"MP4 1080p",note:"HD",url:""},{label:"MP4 720p",note:"",url:""},{label:"MP4 480p",note:"მცირე ზომა",url:""},{label:"MP3",note:"მხოლოდ ხმა",url:""}]};
-  render(d,data);save(v);hint.className="hint";hint.innerHTML="<b>მზადაა!</b> აირჩიე ფორმატი.";
-  go.disabled=false});
+  render(d,data);save(v);hint.innerHTML="<b>მზადაა!</b> აირჩიე ფორმატი."});
 
 function render(d,j){
   const rows=j.formats.map((f,i)=>'<div class="fmt" style="animation-delay:'+(.1+i*.08)+'s"><span>'+f.label+'<em>'+(f.note||"")+'</em></span><button type="button" class="btn dl" data-u="'+(f.url||"")+'">გადმოწერა</button></div>').join("");
-  res.innerHTML='<div class="card"><div class="thumb">'+({tiktok:"Tt",instagram:"Ig",facebook:"f",x:"X"}[d])+'<small>'+(j.duration||"")+'</small></div><div><h3></h3><div class="meta">'+P[d].n+'</div><div class="fmts">'+rows+'</div></div></div>';
+  res.innerHTML='<div class="card"><div class="thumb">'+logo(d)+'<small>'+(j.duration||"")+'</small></div><div><h3></h3><div class="meta">'+P[d].n+'</div><div class="fmts">'+rows+'</div></div></div>';
   res.querySelector("h3").textContent=j.title;
   if(j.thumbnail){const im=new Image(),th=res.querySelector(".thumb");im.referrerPolicy="no-referrer";im.alt="";im.onload=()=>th.prepend(im);im.src=j.thumbnail}res.className="show";
   res.querySelectorAll(".dl").forEach(b=>b.onclick=()=>{if(b.dataset.u){const a=document.createElement("a");a.href=b.dataset.u;a.download="";a.rel="noopener";a.click();toast("გადმოწერა დაიწყო")}else toast("დემო რეჟიმია: გვერდი სერვერს არ უკავშირდება.")});
@@ -267,34 +350,30 @@ function drawH(){hist.classList.toggle("show",H2.length>0);hl.innerHTML="";H2.fo
 function save(u){H2=[u,...H2.filter(x=>x!==u)].slice(0,5);try{localStorage.setItem("moonHist",JSON.stringify(H2))}catch(e){}drawH()}
 $("#clr").onclick=()=>{H2=[];try{localStorage.removeItem("moonHist")}catch(e){}drawH()};drawH();
 
-/* reveal */
-const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.style.transitionDelay=(Math.min([...e.target.parentNode.children].indexOf(e.target),4)*80)+"ms";e.target.classList.add("in");io.unobserve(e.target)}}),{threshold:.12});
-document.querySelectorAll(".r").forEach(el=>io.observe(el));
-
 /* pages */
 const T={
-about:["ჩვენ შესახებ","<p>MOON SOCIAL VIDEO DOWNLOAD არის უფასო ქართულენოვანი ინსტრუმენტი, რომლითაც საჯარო ვიდეოს შენახვა შეგიძლია პირადი, არაკომერციული გამოყენებისთვის.</p><p>რეგისტრაცია არ გჭირდება და ვიდეოებს ჩვენს სერვერზე არ ვინახავთ.</p>"],
-privacy:["კონფიდენციალურობის პოლიტიკა","<p>ანგარიშს არ გთხოვთ და პირად მონაცემებს არ ვაგროვებთ.</p><p>ბმული სერვერზე მხოლოდ დამუშავების დროს გადაიცემა, რათა ვიდეოს ინფორმაცია მოიძებნოს.</p><p>ბოლო ბმულების ისტორია ინახება მხოლოდ შენს ბრაუზერში და მისი გასუფთავება ნებისმიერ დროს შეგიძლია.</p><p>მონაცემებს მესამე პირებზე არ ვყიდით.</p>"],
-terms:["გამოყენების პირობები","<p>სერვისი განკუთვნილია მხოლოდ საჯარო ვიდეოების პირადი, არაკომერციული გამოყენებისთვის.</p><p>გადმოწერილი მასალის გამოყენებაზე პასუხისმგებელი ხარ შენ. ვიდეოს გავრცელებამდე ავტორისგან ნებართვა გჭირდება.</p><p>სერვისი მოქმედებს „როგორც არის“ და ბოროტად გამოყენების შემთხვევაში წვდომას შეგიზღუდავთ.</p>"],
-dmca:["საავტორო უფლებები (DMCA)","<p>თუ ფიქრობ, რომ შენი ნაშრომი ჩვენი სერვისით უნებართვოდ გამოიყენება, მოგვწერე და მივიღებთ საჭირო ზომებს.</p><p>წერილში მიუთითე: ნაშრომის აღწერა, მისი ბმული, შენი საკონტაქტო მონაცემები და განცხადება, რომ უფლებების მფლობელი ხარ ან მისი სახელით მოქმედებ.</p><p>მისამართი: dmca@example.com</p>"],
-cookies:["ქუქიების პოლიტიკა","<p>საიტი ბრაუზერის მეხსიერებას იყენებს მხოლოდ ბოლო ბმულების სიის შესანახად.</p><p>სარეკლამო ან თვალთვალის ქუქიები ამჟამად არ გამოიყენება.</p>"],
-disclaimer:["პასუხისმგებლობის შეზღუდვა","<p>MOON SOCIAL VIDEO DOWNLOAD არ არის დაკავშირებული TikTok-თან, Instagram-თან, Facebook-თან ან X-თან და მათ მიერ არ არის დამტკიცებული.</p><p>ყველა სავაჭრო ნიშანი მათ მფლობელებს ეკუთვნით.</p>"],
-contact:["კონტაქტი","<p>შეკითხვისა და შეტყობინებისთვის მოგვწერე: hello@example.com</p>"]};
+about:["ჩვენ შესახებ","<p>MOON SOCIAL VIDEO DOWNLOAD უფასო ქართულენოვანი ინსტრუმენტია, რომლითაც საჯარო ვიდეოს პირადი, არაკომერციული გამოყენებისთვის შენახვა შეგიძლია.</p><p>რეგისტრაცია არ გჭირდება და ვიდეოებს ჩვენს სერვერზე არ ვინახავთ.</p>"],
+privacy:["კონფიდენციალურობის პოლიტიკა","<p>ანგარიშს არ გთხოვთ და პირად მონაცემებს არ ვაგროვებთ.</p><p>ბმული სერვერს მხოლოდ დამუშავების დროს გადაეცემა, რათა ვიდეოს ინფორმაცია მოიძებნოს.</p><p>ბოლო ბმულების ისტორია მხოლოდ შენს ბრაუზერში ინახება და მისი გასუფთავება ნებისმიერ დროს შეგიძლია.</p><p>მონაცემებს მესამე პირებს არ ვყიდით.</p>"],
+terms:["გამოყენების პირობები","<p>სერვისი განკუთვნილია მხოლოდ საჯარო ვიდეოების პირადი, არაკომერციული გამოყენებისთვის.</p><p>გადმოწერილი მასალის გამოყენებაზე პასუხისმგებელი ხარ შენ. ვიდეოს გავრცელებამდე ავტორისგან ნებართვა უნდა აიღო.</p><p>სერვისი მოქმედებს „როგორც არის“. ბოროტად გამოყენების შემთხვევაში წვდომას შეგიზღუდავთ.</p>"],
+dmca:["საავტორო უფლებები (DMCA)","<p>თუ ფიქრობ, რომ შენი ნაშრომი ჩვენი სერვისით ნებართვის გარეშე გამოიყენება, მოგვწერე და საჭირო ზომებს მივიღებთ.</p><p>წერილში მიუთითე ნაშრომის აღწერა, მისი ბმული, შენი საკონტაქტო მონაცემები და განცხადება, რომ უფლებების მფლობელი ხარ ან მის სახელით მოქმედებ.</p><p>მისამართი: dmca@example.com</p>"],
+cookies:["ქუქიების პოლიტიკა","<p>საიტი ბრაუზერის მეხსიერებას მხოლოდ ბოლო ბმულების სიის შესანახად იყენებს.</p><p>სარეკლამო ან თვალთვალის ქუქიები ამჟამად არ გამოიყენება.</p>"],
+disclaimer:["პასუხისმგებლობის შეზღუდვა","<p>MOON SOCIAL VIDEO DOWNLOAD არ არის დაკავშირებული TikTok-თან, Instagram-თან, Facebook-თან ან X-თან და მათ მიერ დამტკიცებული არ არის.</p><p>ყველა სავაჭრო ნიშანი მათ მფლობელებს ეკუთვნის.</p>"],
+contact:["კონტაქტი","<p>შეკითხვებისა და შეტყობინებებისთვის მოგვწერე: hello@example.com</p>"]};
 const BL=[["mp4-mov-webm","MP4, MOV და WebM: რომელი ფორმატი აირჩიო","MP4 ყველაზე უნივერსალურია და თითქმის ყველა მოწყობილობაზე იხსნება. WebM ვებისთვის კარგია, MOV კი ხშირად Apple-ის მოწყობილობებზე გვხვდება."],
-["resolution","ვიდეოს გარჩევადობა: 720p, 1080p და 4K","რაც უფრო მაღალია გარჩევადობა, მით მეტი დეტალი ჩანს და მით დიდია ფაილი. პატარა ეკრანზე 720p ხშირად საკმარისია."],
-["fps-bitrate","კადრების სიხშირე და ბიტრეიტი: რა განსაზღვრავს ხარისხს","კადრების სიხშირე მოძრაობის სიგლუვეს აჩვენებს, ბიტრეიტი კი რამდენ ინფორმაციას შეიცავს ვიდეოს თითოეული წამი. ხარისხზე ორივე მოქმედებს."],
-["compress","როგორ შევკუმშოთ ვიდეო ხარისხის დაკარგვის გარეშე","ზომა ხშირად მცირდება ბიტრეიტის ზომიერად შემცირებით და თანამედროვე კოდეკის არჩევით. მთავარია, ორიგინალი ასლად შეინახო."],
-["backup","როგორ შევინახოთ საკუთარი ვიდეოების ასლი","საკუთარი ვიდეოების ასლი შეინახე სხვადასხვა ადგილას: კომპიუტერზე, გარე დისკზე და ღრუბელში."],
-["reels-specs","Instagram Reels-ის პარამეტრები","Reels-ისთვის ჩვეულებრივ ვერტიკალური 9:16 ფორმატი, მაგალითად 1080×1920, საუკეთესოდ ჯდება მობილურის ეკრანზე."],
-["tiktok-specs","TikTok ვიდეოს პარამეტრები შემქმნელებისთვის","TikTok-ზეც ყველაზე ხშირად ვერტიკალური 9:16 ვიდეო გამოიყენება. მნიშვნელოვანი ტექსტი ეკრანის კიდეებთან არ დატოვო."],
-["copyright","ვიდეოს საავტორო უფლებების საფუძვლები","ვიდეოს ავტორს მასზე უფლებები აქვს, ამიტომ სხვისი ვიდეოს გავრცელებამდე ნებართვაა საჭირო. პირადი ყურებისთვის შენახვაც შეიძლება წესებით შეიზღუდოს."],
-["offline","ვიდეოს ოფლაინ ყურება და მობილური ტრაფიკის დაზოგვა","საჯარო ვიდეოს წინასწარ შენახვა გზაში ყურებას გიადვილებს და მობილურ ტრაფიკს დაგიზოგავს. აირჩიე დაბალი გარჩევადობა, თუ ადგილი ცოტა გაქვს."]];
+["resolution","ვიდეოს გარჩევადობა: 720p, 1080p და 4K","რაც უფრო მაღალია გარჩევადობა, მით მეტი დეტალი ჩანს და მით უფრო დიდია ფაილი. პატარა ეკრანზე 720p ხშირად საკმარისია."],
+["fps-bitrate","კადრების სიხშირე და ბიტრეიტი: რა განსაზღვრავს ხარისხს","კადრების სიხშირე მოძრაობის სიგლუვეს განსაზღვრავს, ბიტრეიტი კი იმას, თუ რამდენ ინფორმაციას შეიცავს ვიდეოს თითო წამი. ხარისხზე ორივე ახდენს გავლენას."],
+["compress","როგორ შევკუმშოთ ვიდეო ხარისხის დაკარგვის გარეშე","ფაილის ზომა ხშირად მცირდება ბიტრეიტის ზომიერად შემცირებით და თანამედროვე კოდეკის არჩევით. მთავარია, ორიგინალის ასლი შეინახო."],
+["backup","როგორ შევინახოთ საკუთარი ვიდეოების ასლი","საკუთარი ვიდეოების ასლი რამდენიმე ადგილას შეინახე: კომპიუტერში, გარე დისკზე და ღრუბელში."],
+["reels-specs","Instagram Reels-ის პარამეტრები","Reels-ისთვის ყველაზე შესაფერისია ვერტიკალური 9:16 ფორმატი, მაგალითად, 1080×1920. ის მობილურის ეკრანს მთლიანად ავსებს."],
+["tiktok-specs","TikTok ვიდეოს პარამეტრები შემქმნელებისთვის","TikTok-ზეც ყველაზე ხშირად ვერტიკალური 9:16 ვიდეო გამოიყენება. მნიშვნელოვანი ტექსტი ეკრანის კიდეებთან ახლოს არ განათავსო."],
+["copyright","ვიდეოს საავტორო უფლებების საფუძვლები","ვიდეოს ავტორს მასზე უფლებები აქვს, ამიტომ სხვისი ვიდეოს გავრცელებამდე ნებართვაა საჭირო. პირადი ყურებისთვის შენახვაც შეიძლება პლატფორმის წესებით იყოს შეზღუდული."],
+["offline","ვიდეოს ოფლაინ ყურება და მობილური ტრაფიკის დაზოგვა","საჯარო ვიდეოს წინასწარ შენახვა გზაში ყურებას გიადვილებს და მობილურ ტრაფიკს გიზოგავს. თუ ადგილი ცოტა გაქვს, დაბალი გარჩევადობა აირჩიე."]];
 const pg=$("#page"),mn=$("main");
 function route(){const h=location.hash;
   if(!h.startsWith("#/")){pg.hidden=true;mn.hidden=false;if(h.length>1)requestAnimationFrame(()=>{const e=document.getElementById(decodeURIComponent(h.slice(1)));e&&e.scrollIntoView()});return}
   const k=h.slice(2);let t,b;
-  if(k==="blog"){t="ბლოგი";b=BL.map(a=>`<a class="post" href="#/blog/${a[0]}"><b>${a[1]}</b><span>${a[2].slice(0,70)}...</span></a>`).join("")}
-  else if(k.startsWith("blog/")){const a=BL.find(x=>x[0]===k.slice(5));if(a){t=a[1];b=`<p>${a[2]}</p><p><a href="#/blog" style="color:var(--lav)">სხვა სტატიები</a></p>`}}
+  if(k==="blog"){t="ბლოგი";b=BL.map(a=>`<a class="post" href="#/blog/${a[0]}"><b>${a[1]}</b><span>${a[2]}</span></a>`).join("")}
+  else if(k.startsWith("blog/")){const a=BL.find(x=>x[0]===k.slice(5));if(a){t=a[1];b=`<p>${a[2]}</p><p><a href="#/blog" style="color:var(--a)">სხვა სტატიები</a></p>`}}
   else if(T[k])[t,b]=T[k];
   if(!t){t="გვერდი ვერ მოიძებნა";b="<p>ეს მისამართი არ არსებობს.</p>"}
   pg.innerHTML=`<div class="wrap doc"><a class="back" href="#top">მთავარ გვერდზე დაბრუნება</a><h2></h2>${b}</div>`;
