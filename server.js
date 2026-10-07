@@ -11,15 +11,16 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8080;
 const YTDLP = process.env.YTDLP || "yt-dlp";
 const PROXY = process.env.YTDLP_PROXY || "";            // optional: residential proxy for YouTube/Instagram/Facebook
-const JS_RT = process.env.YTDLP_JS_RUNTIME || "";       // YouTube needs a JS runtime in recent yt-dlp, set to "node"
+const JS_RT = process.env.YTDLP_JS_RUNTIME ?? "node";   // YouTube needs a JS runtime in recent yt-dlp; this server runs on node. Set to "off" to disable
+const MAX_JOBS = Number(process.env.MAX_JOBS || 3);     // parallel merge-to-file downloads
 const MAX_YT_SEC = Number(process.env.MAX_YT_MIN || 60) * 60;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 const HOSTS = {
   tiktok: /(^|\.)tiktok\.com$/,
   youtube: /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/,
-  instagram: /(^|\.)instagram\.com$/,
-  facebook: /(^|\.)(facebook\.com|fb\.watch)$/,
+  instagram: /(^|\.)(instagram\.com|instagr\.am)$/,
+  facebook: /(^|\.)(facebook\.com|fb\.watch|fb\.com)$/,
   x: /(^|\.)(x\.com|twitter\.com)$/
 };
 const NAMES = {tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram", facebook: "Facebook", x: "X"};
@@ -38,8 +39,14 @@ const base = k => [
   ...(k === "tiktok" ? ["--impersonate", "chrome"] : []),
   ...(hasCookies ? ["--cookies", COOKIES] : []),
   ...(PROXY ? ["--proxy", PROXY] : []),
-  ...(k === "youtube" && JS_RT ? ["--js-runtimes", JS_RT] : [])
+  ...(k === "youtube" && JS_RT && JS_RT !== "off" ? ["--js-runtimes", JS_RT] : [])
 ];
+
+function ytVideo(u) {
+  const p = u.pathname;
+  if (/(^|\.)youtu\.be$/.test(u.hostname)) return p.length > 1;
+  return (p === "/watch" && u.searchParams.has("v")) || /^\/(shorts|live|embed|v)\/[\w-]{6,}/.test(p);
+}
 
 // allow only the supported platforms (also blocks SSRF to internal hosts)
 function check(raw) {
@@ -47,7 +54,13 @@ function check(raw) {
     const u = new URL(raw);
     if (!/^https?:$/.test(u.protocol)) return null;
     const k = Object.keys(HOSTS).find(k => HOSTS[k].test(u.hostname));
-    return k ? {href: u.href, k} : null;
+    if (!k) return null;
+    if (k === "instagram") {            // m.instagram.com / instagr.am are not understood by yt-dlp; tracking params (igsh, utm) are useless
+      u.hostname = "www.instagram.com"; u.search = ""; u.hash = "";
+    }
+    if (k === "facebook" && /(^|\.)fb\.com$/.test(u.hostname)) u.hostname = "www.facebook.com";
+    if (k === "youtube" && !ytVideo(u)) return null;   // channels / playlists / home page are not single videos
+    return {href: u.href, k};
   } catch { return null; }
 }
 
@@ -104,7 +117,7 @@ const json = (res, code, obj) => {
 // why did yt-dlp fail? the page shows a different message for each
 function why(err = "") {
   if (/no video|not a video|does not contain a video/i.test(err)) return "novideo";
-  if (/login|log in|sign in|cookies|rate-limit|not granting access|private|not a bot|confirm your age/i.test(err)) {
+  if (/login|log in|logged[- ]in|sign in|cookies|rate-limit|not granting access|empty media|private|not a bot|confirm your age|restricted|checkpoint|authenticat/i.test(err)) {
     console.error("HINT: platform wants a login. Set YTDLP_COOKIES (and update yt-dlp).");
     return "login";
   }
@@ -112,7 +125,8 @@ function why(err = "") {
 }
 
 const VIDEO_EXT = /^(mp4|webm|mov|m4v|mkv)$/i;
-const heightsOf = e => (e.formats || []).filter(f => f.vcodec && f.vcodec !== "none" && f.height).map(f => f.height);
+const heightsOf = e => (e.formats || []).filter(f => f.vcodec && f.vcodec !== "none" && (f.height || f.width))
+  .map(f => Math.min(f.width || f.height, f.height || f.width));
 const isVideo = e => heightsOf(e).length > 0 || ((e.formats || []).length > 0 && VIDEO_EXT.test(e.ext || ""));
 
 // a post with several items (Instagram carousel, tweet with 2 videos) comes back as a playlist:
@@ -130,7 +144,7 @@ async function extract(req, res) {
   if (!c) return json(res, 400, {error: "unsupported link"});
   try {
     c.href = await resolve(c.href, c.k);
-    const info = JSON.parse(await run(["-J", "--no-playlist", "--playlist-end", "10", "--no-warnings", ...base(c.k), c.href]));
+    const info = JSON.parse(await run(["-J", "--no-playlist", "--playlist-end", "10", "--no-warnings", ...base(c.k), c.href], c.k === "youtube" ? 60000 : 30000));
     if (info.is_live) return json(res, 422, {error: "live", code: "live"});
     const vids = videosOf(info);
     if (!vids.length) return json(res, 422, {error: "no video", code: "novideo"});
@@ -140,7 +154,7 @@ async function extract(req, res) {
     const enc = encodeURIComponent(c.href), multi = vids.length > 1, formats = [];
     for (const {e, i} of vids) {
       const max = Math.max(0, ...heightsOf(e));
-      let q = [1080, 720, 480, 360].filter(h => h <= max).slice(0, multi ? 1 : 3);
+      let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, multi ? 1 : 3);
       if (!q.length) q = [max || "best"];
       const at = info.entries ? `&i=${i}` : "";
       q.forEach((h, n) => formats.push({
@@ -160,21 +174,22 @@ async function extract(req, res) {
   } catch (err) { json(res, 422, {error: "video not found or not public", code: why(err.stderr)}); }
 }
 
-// YouTube serves HD video and audio as separate streams. They have to be merged into one mp4,
-// and mp4 cannot be streamed to the browser, so merge into a temp file first, send it, delete it.
+// YouTube, Instagram, Facebook and X serve many videos (feed posts especially) as separate video and audio streams.
+// They have to be merged into one mp4, and mp4 cannot be streamed to the browser, so merge into a temp file first,
+// send it, delete it. Only TikTok (single muxed file) is streamed directly.
 let busy = 0;
-async function ytFile(res, c, q, pick) {
-  if (busy >= 2) return json(res, 503, {error: "busy", code: "busy"});
+async function fileDl(res, c, q, pick) {
+  if (busy >= MAX_JOBS) return json(res, 503, {error: "busy", code: "busy"});
   busy++;
   const id = "moon-" + crypto.randomUUID(), tmp = os.tmpdir();
-  const fmt = q === "best" ? "bv*+ba/b"
-    : `bv*[height<=${q}][ext=mp4]+ba[ext=m4a]/bv*[height<=${q}]+ba/b[height<=${q}]/b`;
+  // -S: prefer the shortest side <= q (works for vertical videos too), h264/aac so it plays everywhere
+  const sort = (q === "best" ? "res" : `res:${q}`) + ",vcodec:h264,acodec:m4a";
   // headers go out right away so the browser shows the download and the connection stays alive while we merge
-  res.writeHead(200, {"Content-Type": "video/mp4", "Content-Disposition": 'attachment; filename="moon-video.mp4"'});
+  res.writeHead(200, {"Content-Type": "video/mp4", "Content-Disposition": `attachment; filename="moon-${c.k}.mp4"`});
   let gone = false; res.on("close", () => { gone = true; });
   try {
-    await run(["-q", "-f", fmt, "--merge-output-format", "mp4", "--no-playlist", ...pick, "--no-warnings",
-      "--max-filesize", "700M", ...base(c.k), "-o", path.join(tmp, id + ".%(ext)s"), c.href], 4 * 60 * 1000);
+    await run(["-q", "-f", "bv*+ba/b", "-S", sort, "--merge-output-format", "mp4", "--no-playlist", ...pick, "--no-warnings",
+      "-N", "4", "--max-filesize", "700M", ...base(c.k), "-o", path.join(tmp, id + ".%(ext)s"), c.href], 4 * 60 * 1000);
     if (gone) return;
     const f = (await readdir(tmp)).find(n => n.startsWith(id) && n.endsWith(".mp4"));
     if (!f) throw new Error("no output file");
@@ -197,8 +212,8 @@ function download(req, res, params) {
   const q = params.get("q") || "", i = params.get("i") || "";
   if (!c || !(q === "mp3" || q === "best" || /^\d{3,4}$/.test(q)) || (i && !/^([1-9]|10)$/.test(i))) return json(res, 400, {error: "bad request"});
   const mp3 = q === "mp3", pick = i ? ["--playlist-items", i] : [];
-  if (c.k === "youtube" && !mp3) return ytFile(res, c, q, pick);
-  const fmt = mp3 ? "ba/b" : q === "best" ? "b[ext=mp4]/b" : `b[height<=${q}][ext=mp4]/b[height<=${q}]/b`;
+  if (c.k !== "tiktok" && !mp3) return fileDl(res, c, q, pick);
+  const fmt = mp3 ? "ba/b" : q === "best" ? "b[ext=mp4]/b" : `b[height<=${q}][ext=mp4]/b[height<=${q}]/b`;   // TikTok video / any MP3
   const yt = spawn(YTDLP, ["-f", fmt, "--no-playlist", ...pick, "--no-warnings", ...base(c.k), "-o", "-", c.href], {stdio: ["ignore", "pipe", "ignore"]});
   const procs = [yt]; let out = yt.stdout;
   if (mp3) {
@@ -224,7 +239,7 @@ http.createServer(async (req, res) => {
     if (u.pathname === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests"}) : extract(req, res);
     if (u.pathname === "/api/download" && req.method === "GET") return limited(ip) ? json(res, 429, {error: "too many requests"}) : download(req, res, u.searchParams);
     if (u.pathname === "/" || u.pathname === "/index.html") {
-      res.writeHead(200, {"Content-Type": "text/html; charset=utf-8"});
+      res.writeHead(200, {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache"});
       return res.end(await readFile(path.join(dir, "public/index.html")));
     }
     json(res, 404, {error: "not found"});
