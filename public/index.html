@@ -121,6 +121,9 @@ footer small{flex-basis:100%;color:#6B7489;font-size:12.5px}
 footer{border-top-color:rgba(255,255,255,.14)}footer small{color:rgba(255,255,255,.5)}
 .card,.c,details{color:var(--ink)}
 .pg{background:#9DB8FF}
+.iw{position:relative;min-width:0}.iw .in{width:100%;padding-right:52px}
+.x{position:absolute;right:10px;top:50%;width:36px;height:36px;margin-top:-18px;border:0;border-radius:50%;background:#E6EAF3;color:var(--ink);cursor:pointer;display:none;place-items:center;transition:background .2s}
+.x:hover{background:#D5DBE9}.iw.has .x{display:grid}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
 </style>
 <script>document.documentElement.className="js"</script>
@@ -140,7 +143,7 @@ footer{border-top-color:rgba(255,255,255,.14)}footer small{color:rgba(255,255,25
   <div class="card rv" style="--i:2" id="tool">
     <div class="tabs" id="tabs" role="tablist"><div class="ind" id="ind"></div></div>
     <form id="f" novalidate>
-      <input class="in" id="u" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="ვიდეოს ბმული">
+      <div class="iw" id="iw"><input class="in" id="u" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="ვიდეოს ბმული"><button class="x" id="x" type="button" aria-label="გასუფთავება"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>
       <button class="pb" id="p" type="button">ჩასმა</button>
       <button class="go" id="g" type="submit">გადმოწერა</button>
     </form>
@@ -298,6 +301,11 @@ f.addEventListener("submit",function(e){
   })
   .then(function(){g.disabled=false;g.classList.remove("ld")});
 });
+
+var iw=$("#iw");
+function sync(){iw.classList.toggle("has",!!u.value)}
+u.addEventListener("input",sync);
+$("#x").addEventListener("click",function(){u.value="";sync();r.classList.remove("on");f.classList.remove("err");msg("");u.focus()});
 setTab(0);
 })();
 (function(){
