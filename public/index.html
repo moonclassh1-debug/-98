@@ -166,6 +166,45 @@ footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:ce
 (function(){
   "use strict";
   var API_URL = "/api/extract";
+  // YouTube API (vynex.ai-ის კოდიდან):
+  var YT_BASE = "https://vynex.ai/api/tools/youtube-video";
+  var YT_INFO = YT_BASE;                 // GET ?url=...
+  var YT_VIDEO = YT_BASE + "/download";  // GET ?id=..&height=..
+  var YT_AUDIO = YT_BASE + "/audio";     // GET ?id=..&format_id=..
+  function isYT(v){try{return /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/.test(new URL(v).hostname)}catch(e){return false}}
+  function mb(n){return n?(n<1048576?(n/1024).toFixed(0)+" KB":(n/1048576).toFixed(1)+" MB"):""}
+  function renderLinks(items){
+    var fm=$("#fm");fm.textContent="";
+    items.forEach(function(o){
+      var a=document.createElement("a");a.href=o.url;a.target="_blank";a.rel="noopener";
+      a.textContent=o.label;
+      if(o.note){var sm=document.createElement("small");sm.textContent=o.note;a.appendChild(sm)}
+      fm.appendChild(a);
+    });
+  }
+  function ytFlow(v){
+    return fetch(YT_INFO+"?url="+encodeURIComponent(v),{headers:{Accept:"application/json"}})
+      .then(function(x){return x.json().then(function(d){if(!x.ok)throw d;return d})})
+      .then(function(d){
+        var th=$("#th");
+        if(d.thumbnail){th.src=d.thumbnail;th.hidden=false}else th.hidden=true;
+        $("#ti").textContent=d.title||"";
+        var secs=d.duration|0, dur=secs?Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0"):"";
+        $("#du").textContent=["YouTube",d.channel,dur].filter(Boolean).join(" • ");
+        var items=[], noSound=false;
+        (d.formats||[]).forEach(function(f){
+          if(!f.has_audio)noSound=true;
+          items.push({label:"MP4 "+f.label,note:[mb(f.size),f.has_audio?"":"ხმის გარეშე"].filter(Boolean).join(" • "),
+            url:f.url||YT_VIDEO+"?id="+encodeURIComponent(d.id)+"&height="+f.height});
+        });
+        (d.audio||[]).forEach(function(f){
+          items.push({label:"M4A აუდიო",note:[f.bitrate,mb(f.size)].filter(Boolean).join(" • "),
+            url:f.url||YT_AUDIO+"?id="+encodeURIComponent(d.id)+"&format_id="+encodeURIComponent(f.format_id)});
+        });
+        renderLinks(items);r.classList.add("on");
+        msg(noSound?"HD ვიდეოს ხმა ცალკეა: ჩამოტვირთე MP4 და M4A, ან აირჩიე 360p (ხმით).":"მზადაა! აირჩიე ხარისხი.","ok");
+      });
+  }
 
   var themes = [
     ["#25f4ee","#fe2c55","https://www.tiktok.com/..."],
@@ -210,7 +249,7 @@ footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:ce
     if(!ok){void f.offsetWidth;f.classList.add("err");msg("შეიყვანე სწორი ბმული (https://...)","bad");return}
     var errs={login:"ეს ვიდეო დახურულია ან საჭიროებს ავტორიზაციას.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
     g.disabled=true;pr.classList.add("on");msg("მუშავდება...");
-    fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})})
+    (isYT(v)?ytFlow(v):fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})})
       .then(function(x){return x.json().then(function(d){if(!x.ok)throw d;return d})})
       .then(function(d){
         var th=$("#th");
@@ -225,9 +264,9 @@ footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:ce
           fm.appendChild(a);
         });
         r.classList.add("on");msg("მზადაა! აირჩიე ხარისხი.","ok");
-      })
+      }))
       .catch(function(e){
-        msg(e&&e.code&&errs[e.code]||(e&&e.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad")
+        msg(e&&e.error&&!e.code&&isYT(v)?e.error:e&&e.code&&errs[e.code]||(e&&e.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad")
       })
       .finally(function(){g.disabled=false;pr.classList.remove("on")});
   });
