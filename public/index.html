@@ -106,6 +106,7 @@ footer small{flex-basis:100%;color:#6B7489;font-size:12.5px}
 .bl:nth-child(1){--bc:var(--c1);transform:translate(-30vw,-22vh)}.bl:nth-child(2){--bc:var(--c2);transform:translate(30vw,-18vh)}.bl:nth-child(3){--bc:var(--c3);transform:translate(26vw,30vh)}.bl:nth-child(4){--bc:var(--c4);transform:translate(-28vw,30vh)}
 .js .rs{opacity:0;transform:translate3d(0,28px,0);transition:opacity .9s var(--ease),transform .9s var(--ease);transition-delay:var(--d,0ms)}
 .js .rs.on{opacity:1;transform:none}
+.w{display:inline-block;white-space:nowrap}
 .ch{display:inline-block;animation:chr .95s var(--ease) both;animation-delay:calc(var(--k)*26ms + 150ms)}
 @keyframes chr{from{opacity:0;transform:translate3d(0,.7em,0) rotate(6deg)}}
 .pg{position:fixed;left:0;top:0;width:100%;height:3px;transform-origin:0 50%;transform:scaleX(0);background:var(--acc);z-index:50;pointer-events:none}
@@ -302,7 +303,7 @@ setTab(0);
 var rm=matchMedia("(prefers-reduced-motion:reduce)").matches,Q=function(x){return document.querySelector(x)},A=function(x){return [].slice.call(document.querySelectorAll(x))};
 var h=Q("h1");
 if(!rm){h.setAttribute("aria-label",h.textContent);var k=0;
-  h.innerHTML=h.innerHTML.split("<br>").map(function(l){return l.split("").map(function(c){return c===" "?" ":'<span class="ch" aria-hidden="true" style="--k:'+(k++)+'">'+c+"</span>"}).join("")}).join("<br>")}
+  h.innerHTML=h.innerHTML.split("<br>").map(function(l){return l.split(" ").map(function(w){return '<span class="w">'+w.split("").map(function(c){return '<span class="ch" aria-hidden="true" style="--k:'+(k++)+'">'+c+"</span>"}).join("")+"</span>"}).join(" ")}).join("<br>")}
 var els=A(".sec h2,.sec>p,.c,details,footer");els.forEach(function(e){e.classList.add("rs")});
 if(!rm&&"IntersectionObserver" in window){
   var io=new IntersectionObserver(function(en){en.forEach(function(x){if(!x.isIntersecting)return;var t=x.target;t.style.setProperty("--d",Math.min([].indexOf.call(t.parentNode.children,t),5)*90+"ms");t.classList.add("on");io.unobserve(t)})},{rootMargin:"0px 0px -8% 0px",threshold:.12});
