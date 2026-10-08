@@ -133,7 +133,7 @@ footer{border-top-color:rgba(255,255,255,.14)}footer small{color:rgba(255,255,25
 </header>
 
 <main>
-  <h1>ჩასვი ბმული.<br>აიღე ვიდეო.</h1>
+  <h1>ჩასვით ბმული და გადმოწერეთ</h1>
   <p class="lead rv" style="--i:1">TikTok, Instagram, Facebook, YouTube და X. სწრაფად, რეგისტრაციის გარეშე.</p>
 
   <div class="card rv" style="--i:2" id="tool">
@@ -198,10 +198,18 @@ var P=[
 {k:"facebook",n:"Facebook",ph:"https://www.facebook.com/watch/?v=…",re:/(facebook\.com|fb\.watch|fb\.com)$/,d:"M13.5 21v-8h2.7l.4-3.1h-3.1V8c0-.9.25-1.5 1.55-1.5h1.65V3.7c-.3 0-1.25-.1-2.4-.1-2.4 0-4.05 1.45-4.05 4.15v2.15H7.5V13h2.75v8z"},
 {k:"youtube",n:"YouTube",ph:"https://www.youtube.com/watch?v=…",re:/(youtube\.com|youtu\.be|youtube-nocookie\.com)$/,d:"M21.6 7.2a2.5 2.5 0 0 0-1.76-1.77C18.3 5 12 5 12 5s-6.3 0-7.84.43A2.5 2.5 0 0 0 2.4 7.2C2 8.76 2 12 2 12s0 3.24.4 4.8a2.5 2.5 0 0 0 1.76 1.77C5.7 19 12 19 12 19s6.3 0 7.84-.43a2.5 2.5 0 0 0 1.76-1.77C22 15.24 22 12 22 12s0-3.24-.4-4.8zM10 15V9l5.2 3z"},
 {k:"x",n:"X",ph:"https://x.com/user/status/…",re:/(x\.com|twitter\.com)$/,d:"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"}];
+function icon(p){
+  var path=function(f,t){return '<path fill-rule="evenodd" fill="'+f+'"'+(t?' transform="translate('+t+')"':"")+' d="'+p.d+'"/>'};
+  var body,defs="";
+  if(p.k==="tiktok")body=path("#25F4EE","-.9 -.7")+path("#FE2C55",".9 .7")+path("#111");
+  else if(p.k==="instagram"){defs='<defs><linearGradient id="ig" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".3" stop-color="#FA7E1E"/><stop offset=".55" stop-color="#D62976"/><stop offset=".8" stop-color="#962FBF"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs>';body=path("url(#ig)")}
+  else body=path({facebook:"#1877F2",youtube:"#FF0033",x:"#0F1419"}[p.k]);
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">'+defs+body+"</svg>";
+}
 var tabs=$("#tabs"),ind=$("#ind"),f=$("#f"),u=$("#u"),m=$("#m"),g=$("#g"),r=$("#r"),tl=$("#tl"),cur=0,btns=[];
 P.forEach(function(p,i){
   var b=document.createElement("button");b.type="button";b.className="tab";b.setAttribute("role","tab");b.setAttribute("aria-label",p.n);
-  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="'+p.d+'"/></svg><span>'+p.n+'</span>';
+  b.innerHTML=icon(p)+"<span>"+p.n+"</span>";
   b.addEventListener("click",function(){setTab(i);u.focus({preventScroll:true})});
   tabs.appendChild(b);btns.push(b);
 });
