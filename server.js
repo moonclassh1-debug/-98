@@ -210,7 +210,7 @@ async function fileDl(res, c, q, pick) {
 function download(req, res, params) {
   const c = check(params.get("url") || "");
   const q = params.get("q") || "", i = params.get("i") || "";
-  if (!c || !(q === "mp3" || q === "best" || /^\d{3,4}$/.test(q)) \vert{}\vert{} (i && !/^([1-9]\vert{}10)$/.test(i))) return json(res, 400, {error: "bad request"});
+ if (!c || !(q === "mp3" || q === "best" || /^\d{3,4}$/.test(q)) || (i && !/^([1-9]|10)$/.test(i))) return json(res, 400, {error: "bad request"});
   const mp3 = q === "mp3", pick = i ? ["--playlist-items", i] : [];
   if (c.k !== "tiktok" && !mp3) return fileDl(res, c, q, pick);
   const fmt = mp3 ? "ba/b" : q === "best" ? "b[ext=mp4]/b" : `b[height<=${q}][ext=mp4]/b[height<=${q}]/b`;   // TikTok video / any MP3
