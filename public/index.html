@@ -79,4 +79,146 @@ form.err input{border-color:var(--bad);animation:shake .4s}
 .go{width:100%;font-size:17px;color:#05060a;background:linear-gradient(100deg,var(--a),var(--b));box-shadow:0 16px 36px -14px color-mix(in srgb,var(--b) 75%,transparent)}
 .go::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);transform:translateX(-130%);transition:transform .9s var(--ease)}
 .go:hover::after{transform:translateX(130%)}
-.prog{height:4px;border-radius:99px;background:var(--line);overflow:hidden;
+.prog{height:4px;border-radius:99px;background:var(--line);overflow:hidden;display:none}
+.prog.on{display:block}
+.prog i{display:block;height:100%;width:40%;border-radius:99px;background:linear-gradient(100deg,var(--a),var(--b));animation:ld 1.1s ease-in-out infinite alternate}
+@keyframes ld{from{transform:translateX(-30%)}to{transform:translateX(160%)}}
+.msg{min-height:24px;margin:10px 4px 2px;font-size:14px;color:var(--mut);text-align:center}
+.msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
+.res{display:none;margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:19px;background:#06070c}
+.res.on{display:block}
+.res a{display:block;text-align:center;padding:14px;border-radius:15px;font-weight:700;text-decoration:none;color:#05060a;background:linear-gradient(100deg,var(--a),var(--b))}
+
+.feat{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:64px auto 0;max-width:720px;text-align:left}
+.feat div{padding:20px;border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.025)}
+.feat h3{margin:0 0 6px;font-size:16px;font-weight:700}.feat p{margin:0;color:var(--mut);font-size:14px;font-weight:300;line-height:1.6}
+@media(max-width:700px){.feat{grid-template-columns:1fr}.tab span{display:none}.field{flex-wrap:wrap}.paste{width:100%;height:50px}}
+footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:center;color:var(--dim);font-size:13px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="aur" aria-hidden="true"><i></i><i></i></div>
+
+<header>
+  <div class="wrap">
+    <div class="bar">
+      <a class="logo" href="#"><b>MOON</b> SOCIAL VIDEO DOWNLOAD</a>
+      <nav class="top">
+        <a href="#tool">გადმოწერა</a>
+        <a href="#info">ინფორმაცია</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <button class="orb o1" type="button" data-p="0" aria-label="TikTok"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#111"/><path d="M13 5v9.2a2.4 2.4 0 1 1-2.4-2.4" fill="none" stroke="#25f4ee" stroke-width="2"/><path d="M13 5c.3 2 1.6 3.2 3.6 3.4" fill="none" stroke="#fe2c55" stroke-width="2"/></svg></button>
+  <button class="orb o2" type="button" data-p="1" aria-label="Instagram"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#c13584"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/></svg></button>
+  <button class="orb o3" type="button" data-p="2" aria-label="Facebook"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#1877f2"/><path d="M13.5 19v-6h2l.4-2.4h-2.4V9.2c0-.7.3-1.2 1.3-1.2h1.2V5.9c-.3 0-1-.1-1.8-.1-1.9 0-3 1.1-3 3.100v1.700H9v2.400h2.200v6z" fill="#fff"/></svg></button>
+  <button class="orb o4" type="button" data-p="3" aria-label="YouTube"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#ff0033"/><path d="M10 8.500v7l6-3.500z" fill="#fff"/></svg></button>
+
+  <div class="wrap">
+    <h1><span class="ln"><span>გადმოწერე ვიდეო</span></span><span class="ln"><span>მარტივად და სწრაფად</span></span></h1>
+    <p class="lead">ჩასვი ვიდეოს ბმული, აირჩიე პლატფორმა და დააჭირე გადმოწერას.</p>
+
+    <div class="tool" id="tool">
+      <div class="tabs" role="tablist">
+        <div id="ind"></div>
+        <button class="tab" role="tab" aria-selected="true" data-i="0"><svg class="lg" viewBox="0 0 24 24"><path d="M13 4v10.200a3 3 0 1 1-3-3" fill="none" stroke="#25f4ee" stroke-width="2.200"/><path d="M13 4c.3 2.400 1.800 3.800 4 4" fill="none" stroke="#fe2c55" stroke-width="2.200"/></svg><span>TikTok</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-i="1"><svg class="lg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="#e1306c" stroke-width="2"/><circle cx="12" cy="12" r="3.500" fill="none" stroke="#e1306c" stroke-width="2"/></svg><span>Instagram</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-i="2"><svg class="lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#1877f2"/><path d="M13 20v-6.500h2l.4-2.500H13V9.500c0-.7.3-1.200 1.300-1.200h1.200V6.200c-.3 0-1-.1-1.800-.1-1.900 0-3 1.100-3 3.100V11H8.600v2.500H10.700V20z" fill="#fff"/></svg><span>Facebook</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-i="3"><svg class="lg" viewBox="0 0 24 24"><rect x="2.500" y="5.500" width="19" height="13" rx="4" fill="#ff0033"/><path d="M10 9v6l5-3z" fill="#fff"/></svg><span>YouTube</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-i="4"><svg class="lg" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>სხვა</span></button>
+      </div>
+
+      <form id="f" novalidate>
+        <div class="field">
+          <input id="u" type="url" inputmode="url" autocomplete="off" placeholder="ჩასვი ბმული აქ..." aria-label="ვიდეოს ბმული">
+          <button class="btn paste" id="p" type="button">ჩასმა</button>
+        </div>
+        <button class="btn go" id="g" type="submit">გადმოწერა</button>
+        <div class="prog" id="pr"><i></i></div>
+      </form>
+      <div class="msg" id="m" role="status" aria-live="polite"></div>
+      <div class="res" id="r"><a id="dl" href="#" target="_blank" rel="noopener">ფაილის გადმოწერა</a></div>
+    </div>
+
+    <div class="feat" id="info">
+      <div><h3>სწრაფი</h3><p>ბმულის ჩასმა და ერთი დაწკაპუნება.</p></div>
+      <div><h3>მოსახერხებელი</h3><p>მუშაობს ტელეფონზეც და კომპიუტერზეც.</p></div>
+      <div><h3>უსაფრთხო</h3><p>რეგისტრაცია არ არის საჭირო.</p></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">გადმოწერეთ მხოლოდ ის კონტენტი, რომლის გამოყენების უფლებაც გაქვთ.</div></footer>
+
+<script>
+(function(){
+  "use strict";
+  // ⚠ ჩასვი შენი სერვერის/API-ს მისამართი აქ. ბრაუზერიდან პირდაპირ გადმოწერა შეუძლებელია (CORS).
+  // სერვერმა უნდა დააბრუნოს JSON: { "url": "https://...video.mp4" }
+  var API_URL = "";
+
+  var themes = [
+    ["#25f4ee","#fe2c55","https://www.tiktok.com/..."],
+    ["#feda75","#d62976","https://www.instagram.com/reel/..."],
+    ["#4da3ff","#1877f2","https://www.facebook.com/watch/..."],
+    ["#ff6b6b","#ff0033","https://www.youtube.com/watch?v=..."],
+    ["#a78bfa","#25f4ee","ჩასვი ვიდეოს ბმული..."]
+  ];
+  var $=function(s){return document.querySelector(s)};
+  var tabs=[].slice.call(document.querySelectorAll(".tab"));
+  var ind=$("#ind"),f=$("#f"),u=$("#u"),m=$("#m"),g=$("#g"),pr=$("#pr"),r=$("#r"),dl=$("#dl"),cur=0;
+
+  function setTab(i){
+    cur=i;
+    tabs.forEach(function(t,k){t.setAttribute("aria-selected",k===i)});
+    ind.style.transform="translateX("+(i*100)+"%)";
+    var t=themes[i], root=document.documentElement;
+    root.style.setProperty("--a",t[0]);root.style.setProperty("--b",t[1]);
+    u.placeholder=t[2];
+    msg("");r.classList.remove("on");
+  }
+  function msg(t,c){m.textContent=t;m.className="msg"+(c?" "+c:"")}
+  tabs.forEach(function(t,k){t.addEventListener("click",function(){setTab(k)})});
+  [].forEach.call(document.querySelectorAll(".orb"),function(o){
+    o.addEventListener("click",function(){setTab(+o.dataset.p);$("#tool").scrollIntoView({behavior:"smooth"});u.focus({preventScroll:true})});
+  });
+
+  $("#p").addEventListener("click",function(){
+    if(!navigator.clipboard||!navigator.clipboard.readText){msg("ჩასვი ხელით (Ctrl+V)","bad");u.focus();return}
+    navigator.clipboard.readText().then(function(t){u.value=t.trim();u.focus()}).catch(function(){msg("ბუფერზე წვდომა დაიბლოკა — ჩასვი ხელით","bad")});
+  });
+
+  document.querySelector(".tool").addEventListener("pointermove",function(e){
+    var b=this.getBoundingClientRect();
+    this.style.setProperty("--mx",(e.clientX-b.left)+"px");this.style.setProperty("--my",(e.clientY-b.top)+"px");
+  });
+
+  f.addEventListener("submit",function(e){
+    e.preventDefault();r.classList.remove("on");f.classList.remove("err");
+    var v=u.value.trim(),ok=false;
+    try{var p=new URL(v);ok=/^https?:$/.test(p.protocol)}catch(_){}
+    if(!ok){void f.offsetWidth;f.classList.add("err");msg("შეიყვანე სწორი ბმული (https://...)","bad");return}
+    if(!API_URL){msg("სერვერის მისამართი (API_URL) ჯერ არ არის მითითებული კოდში.","bad");return}
+    g.disabled=true;pr.classList.add("on");msg("მუშავდება...");
+    fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})})
+      .then(function(x){if(!x.ok)throw new Error(x.status);return x.json()})
+      .then(function(d){
+        if(!d||!d.url)throw new Error("empty");
+        dl.href=d.url;r.classList.add("on");msg("მზადაა!","ok");
+      })
+      .catch(function(){msg("ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან.","bad")})
+      .finally(function(){g.disabled=false;pr.classList.remove("on")});
+  });
+
+  document.addEventListener("visibilitychange",function(){document.documentElement.classList.toggle("off",document.hidden)});
+  setTab(0);
+})();
+</script>
+</body>
+</html>
