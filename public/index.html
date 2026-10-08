@@ -275,9 +275,10 @@ function ownFlow(v){
     (d.formats||[]).forEach(function(o){
       if(/MP3/i.test(o.label)){au=o;return}
       var h=parseInt((o.label.match(/(\d{3,4})p/)||[])[1])||0;
-      if(h===0||h===1080||h===720||h===480)vids.push({h:h,o:o});
+      vids.push({h:h,o:o});
     });
-    vids=vids.slice(0,3);
+    var pref=vids.filter(function(q){return q.h===0||q.h===1080||q.h===720||q.h===480});
+    vids=(pref.length?pref:vids.slice(0,1)).slice(0,3);
     var items=vids.map(function(q){return {t:q.h?q.h+"p":"ვიდეო",s:q.o.note&&q.h<720?q.o.note:sub(q.h),url:q.o.url}});
     if(au)items.push({t:"აუდიო",s:"MP3",url:au.url});
     show({thumb:d.thumbnail,title:d.title,meta:[d.platform,d.duration].filter(Boolean).join(" · ")},items);
