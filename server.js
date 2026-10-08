@@ -222,7 +222,7 @@ function download(req, res, params) {
     ff.stdin.on("error", () => {});
   }
   res.writeHead(200, {
-    "Content-Type": mp3 ? "audio/mpeg",
+    "Content-Type": mp3 ? "audio/mpeg" : "video/mp4",
     "Content-Disposition": `attachment; filename="moon-${mp3 ? "audio.mp3" : "video.mp4"}"`
   });
   out.pipe(res);
