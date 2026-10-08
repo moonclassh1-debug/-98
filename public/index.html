@@ -87,7 +87,13 @@ form.err input{border-color:var(--bad);animation:shake .4s}
 .msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
 .res{display:none;margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:19px;background:#06070c}
 .res.on{display:block}
-.res a{display:block;text-align:center;padding:14px;border-radius:15px;font-weight:700;text-decoration:none;color:#05060a;background:linear-gradient(100deg,var(--a),var(--b))}
+.meta{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.meta img{width:84px;height:84px;object-fit:cover;border-radius:14px;flex:none}
+.meta b{display:block;font-size:15px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta small{color:var(--mut)}
+.fm{display:grid;gap:8px}
+.fm a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;border-radius:15px;font-weight:700;text-decoration:none;color:#05060a;background:linear-gradient(100deg,var(--a),var(--b))}
+.fm a small{font-weight:600;opacity:.75}
 
 .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:64px auto 0;max-width:720px;text-align:left}
 .feat div{padding:20px;border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.025)}
@@ -142,7 +148,7 @@ footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:ce
         <div class="prog" id="pr"><i></i></div>
       </form>
       <div class="msg" id="m" role="status" aria-live="polite"></div>
-      <div class="res" id="r"><a id="dl" href="#" target="_blank" rel="noopener">ფაილის გადმოწერა</a></div>
+      <div class="res" id="r"><div class="meta"><img id="th" alt="" hidden><div><b id="ti"></b><small id="du"></small></div></div><div id="fm" class="fm"></div></div>
     </div>
 
     <div class="feat" id="info">
@@ -159,9 +165,7 @@ footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:ce
 <script>
 (function(){
   "use strict";
-  // ⚠ ჩასვი შენი სერვერის/API-ს მისამართი აქ. ბრაუზერიდან პირდაპირ გადმოწერა შეუძლებელია (CORS).
-  // სერვერმა უნდა დააბრუნოს JSON: { "url": "https://...video.mp4" }
-  var API_URL = "";
+  var API_URL = "/api/extract";
 
   var themes = [
     ["#25f4ee","#fe2c55","https://www.tiktok.com/..."],
@@ -172,7 +176,7 @@ footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:ce
   ];
   var $=function(s){return document.querySelector(s)};
   var tabs=[].slice.call(document.querySelectorAll(".tab"));
-  var ind=$("#ind"),f=$("#f"),u=$("#u"),m=$("#m"),g=$("#g"),pr=$("#pr"),r=$("#r"),dl=$("#dl"),cur=0;
+  var ind=$("#ind"),f=$("#f"),u=$("#u"),m=$("#m"),g=$("#g"),pr=$("#pr"),r=$("#r"),cur=0;
 
   function setTab(i){
     cur=i;
@@ -204,15 +208,27 @@ footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:ce
     var v=u.value.trim(),ok=false;
     try{var p=new URL(v);ok=/^https?:$/.test(p.protocol)}catch(_){}
     if(!ok){void f.offsetWidth;f.classList.add("err");msg("შეიყვანე სწორი ბმული (https://...)","bad");return}
-    if(!API_URL){msg("სერვერის მისამართი (API_URL) ჯერ არ არის მითითებული კოდში.","bad");return}
+    var errs={login:"ეს ვიდეო დახურულია ან საჭიროებს ავტორიზაციას.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
     g.disabled=true;pr.classList.add("on");msg("მუშავდება...");
     fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})})
-      .then(function(x){if(!x.ok)throw new Error(x.status);return x.json()})
+      .then(function(x){return x.json().then(function(d){if(!x.ok)throw d;return d})})
       .then(function(d){
-        if(!d||!d.url)throw new Error("empty");
-        dl.href=d.url;r.classList.add("on");msg("მზადაა!","ok");
+        var th=$("#th");
+        if(d.thumbnail){th.src=d.thumbnail;th.hidden=false}else th.hidden=true;
+        $("#ti").textContent=d.title||"";
+        $("#du").textContent=[d.platform,d.duration].filter(Boolean).join(" • ");
+        var fm=$("#fm");fm.textContent="";
+        (d.formats||[]).forEach(function(o){
+          var a=document.createElement("a");a.href=o.url;a.setAttribute("download","");
+          a.textContent=o.label;
+          if(o.note){var sm=document.createElement("small");sm.textContent=o.note;a.appendChild(sm)}
+          fm.appendChild(a);
+        });
+        r.classList.add("on");msg("მზადაა! აირჩიე ხარისხი.","ok");
       })
-      .catch(function(){msg("ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან.","bad")})
+      .catch(function(e){
+        msg(e&&e.code&&errs[e.code]||(e&&e.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad")
+      })
       .finally(function(){g.disabled=false;pr.classList.remove("on")});
   });
 
