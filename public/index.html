@@ -3,276 +3,311 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#05060a">
-<meta name="color-scheme" content="dark">
-<title>MOON SOCIAL VIDEO DOWNLOAD — სოციალური ვიდეოების გადმოწერა</title>
+<meta name="theme-color" content="#050B2E">
+<meta name="color-scheme" content="light">
+<title>MOON — ვიდეოს გადმოწერა TikTok, Instagram, Facebook, YouTube, X</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://vynex.ai" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-@property --a{syntax:"<color>";inherits:true;initial-value:#25f4ee}
-@property --b{syntax:"<color>";inherits:true;initial-value:#fe2c55}
-:root{--bg:#05060a;--tx:#f4f5fa;--mut:#9ba0b5;--dim:#666b80;--line:rgba(255,255,255,.08);--card:#0b0d15;--bad:#ff7a8a;--ok:#4be3a6;--ease:cubic-bezier(.16,1,.3,1);
---soft:cubic-bezier(.22,.61,.36,1);--snap:cubic-bezier(.32,.72,0,1);
---sans:"Noto Sans Georgian",system-ui,-apple-system,"Segoe UI",sans-serif;transition:--a .42s cubic-bezier(.32,.72,0,1),--b .42s cubic-bezier(.32,.72,0,1)}
+@property --c1{syntax:"<color>";inherits:true;initial-value:#BDF7F4}
+@property --c2{syntax:"<color>";inherits:true;initial-value:#FFC2D0}
+@property --c3{syntax:"<color>";inherits:true;initial-value:#D9D6FF}
+@property --c4{syntax:"<color>";inherits:true;initial-value:#CFF5F2}
+@property --acc{syntax:"<color>";inherits:true;initial-value:#111114}
+:root{--c1:#BDF7F4;--c2:#FFC2D0;--c3:#D9D6FF;--c4:#CFF5F2;--acc:#111114;transition:--c1 .6s,--c2 .6s,--c3 .6s,--c4 .6s,--acc .6s;--ink:#0B1020;--mut:#566074;--line:rgba(15,23,42,.1);--navy:var(--acc);--bad:#C8203F;--ok:#0E7A55;--ease:cubic-bezier(.16,1,.3,1);--sans:"Noto Sans Georgian",system-ui,-apple-system,"Segoe UI",sans-serif}
+html[data-p=tiktok]{--c1:#BDF7F4;--c2:#FFC2D0;--c3:#D9D6FF;--c4:#CFF5F2;--acc:#111114}
+html[data-p=instagram]{--c1:#FFD9A8;--c2:#F7B5D8;--c3:#D3B8FF;--c4:#FFE7A3;--acc:#A3195B}
+html[data-p=facebook]{--c1:#B9D3FF;--c2:#CDE0FF;--c3:#D8E6FF;--c4:#A9C8FF;--acc:#1456C8}
+html[data-p=youtube]{--c1:#FFC4C4;--c2:#FFD9D0;--c3:#FFE3E3;--c4:#FFB8B8;--acc:#C4161C}
+html[data-p=x]{--c1:#D9DEE6;--c2:#E6E9EF;--c3:#CBD2DC;--c4:#EEF0F4;--acc:#0F1419}
 *,*::before,*::after{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:96px;-webkit-text-size-adjust:100%;background:var(--bg)}
+html{-webkit-text-size-adjust:100%;background:#050B2E;scroll-behavior:smooth;scroll-padding-top:20px}
 html,body{max-width:100%;overflow-x:hidden}
-body{margin:0;color:var(--tx);font:400 16px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
-a{color:inherit}button{font-family:inherit;touch-action:manipulation}button,a{-webkit-tap-highlight-color:transparent}
-:focus-visible{outline:2px solid var(--a);outline-offset:3px;border-radius:12px}
-.lg{display:block;flex:none;width:24px;height:24px}
-.wrap{width:100%;max-width:1060px;margin:0 auto;padding:0 22px}
-.aur{position:fixed;inset:0;z-index:-1;overflow:hidden;contain:strict;pointer-events:none}
-.aur i{position:absolute;width:75vmax;height:75vmax;border-radius:50%;will-change:transform;animation:dr 28s ease-in-out infinite alternate}
-.aur i:nth-child(1){left:-30vmax;top:-45vmax;background:radial-gradient(closest-side,color-mix(in srgb,var(--a) 30%,transparent),transparent)}
-.aur i:nth-child(2){right:-35vmax;top:-40vmax;background:radial-gradient(closest-side,color-mix(in srgb,var(--b) 26%,transparent),transparent);animation-duration:34s;animation-direction:alternate-reverse}
-@keyframes dr{to{transform:translate3d(9vmax,7vmax,0) scale(1.12)}}
-.off .aur i,.off .orb{animation-play-state:paused}
+body{margin:0;min-height:100dvh;color:#fff;font:400 16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+button,input{font-family:inherit}button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+a{-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--navy);outline-offset:3px;border-radius:12px}
+@keyframes in{from{opacity:0;transform:translate3d(0,14px,0)}}
+.rv{animation:in .8s var(--ease) both;animation-delay:calc(var(--i,0)*70ms)}
 
-header{position:relative;z-index:30;padding-top:calc(18px + env(safe-area-inset-top,0px))}
-header .wrap{max-width:980px}
-.bar{display:flex;align-items:center;justify-content:space-between;gap:16px;height:56px;padding:0 28px;border-radius:99px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-.logo{font-size:13px;font-weight:300;letter-spacing:.05em;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.logo b{font-weight:800;letter-spacing:.08em}
-nav.top{display:flex;align-items:center;gap:30px;font-size:14px;font-weight:500}
-nav.top a{text-decoration:none;color:var(--mut);transition:color .3s}nav.top a:hover{color:var(--tx)}
-@media(max-width:820px){nav.top{display:none}.bar{justify-content:center}}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:1000px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 0}
+.logo{font-weight:800;letter-spacing:.14em;font-size:15px;color:var(--ink);text-decoration:none}
+.tag{font-size:13px;color:var(--mut)}
 
-.hero{position:relative;padding:68px 0 30px;text-align:center}
-@keyframes fade{from{opacity:0}}
-h1{margin:0 auto 24px;font-weight:800;font-size:clamp(24px,calc((100vw - 44px)/11.6),78px);line-height:1.2;letter-spacing:-.02em;white-space:nowrap}
-.ln{display:block;overflow:hidden;padding:.05em 0 .24em;margin-bottom:-.14em}
-.ln>span{display:block;line-height:1.25;padding-bottom:.1em;animation:rise 1.1s var(--ease) both}
-.ln:nth-child(2)>span{animation-delay:.12s;background:linear-gradient(100deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
-@keyframes rise{from{transform:translate3d(0,110%,0)}}
-.lead{max-width:540px;margin:0 auto 44px;color:var(--mut);font-size:18px;font-weight:300;animation:up 1s .3s var(--ease) both}
-@keyframes up{from{opacity:0;transform:translate3d(0,26px,0)}}
+main{max-width:760px;margin:0 auto;padding:clamp(40px,8vw,88px) 16px calc(40px + env(safe-area-inset-bottom,0px));text-align:center}
+h1{margin:0 0 14px;font-size:clamp(32px,7vw,66px);line-height:1.14;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.lead{margin:0 auto 32px;max-width:480px;color:var(--mut);font-size:clamp(15px,2.4vw,18px)}
 
-.orb{position:absolute;display:none;width:66px;height:66px;padding:0;border:0;background:none;border-radius:21px;cursor:pointer;box-shadow:0 24px 44px -14px rgba(0,0,0,.9);animation:fade 1.4s .8s both,fl 7s ease-in-out infinite alternate}
-.orb .lg{width:100%;height:100%;transition:transform .4s var(--snap)}.orb:hover .lg{transform:scale(1.08)}.orb:active .lg{transform:scale(.9)}
-.o1{left:1%;top:128px}.o2{left:8%;top:358px;animation-delay:.95s,-3s;width:56px;height:56px}.o3{right:2%;top:148px;animation-delay:1.1s,-5s;width:60px;height:60px}.o4{right:9%;top:368px;animation-delay:1.25s,-2s}
-@keyframes fl{from{transform:translate3d(0,0,0) rotate(-5deg)}to{transform:translate3d(0,-24px,0) rotate(6deg)}}
-@media(min-width:1060px){.orb{display:block}}
+.card{text-align:left;padding:clamp(10px,2.2vw,18px);border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 1px 2px rgba(15,23,42,.05),0 30px 60px -30px rgba(40,50,110,.35)}
+.tabs{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:4px;margin-bottom:10px;border-radius:16px;background:#EEF1F8}
+.ind{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/5);border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.12);transition:transform .45s var(--ease)}
+.tab{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 4px;border:0;background:none;color:var(--mut);font-weight:600;font-size:14px;border-radius:12px;cursor:pointer;transition:color .25s}
+.tab svg{width:21px;height:21px;flex:none;fill:currentColor;transition:transform .35s var(--ease)}
+.tab[aria-selected=true]{color:var(--ink)}
+.tab:active svg{transform:scale(.88)}
+@media(max-width:560px){.tab span{display:none}}
 
-.tool{position:relative;scroll-margin-top:24px;max-width:720px;margin:0 auto;text-align:left;padding:14px;border-radius:32px;border:1px solid transparent;
-background:linear-gradient(var(--card),var(--card)) padding-box,radial-gradient(440px circle at var(--mx,50%) var(--my,0%),color-mix(in srgb,var(--a) 85%,transparent),rgba(255,255,255,.1) 60%) border-box;
-box-shadow:0 60px 110px -50px color-mix(in srgb,var(--a) 55%,transparent),0 30px 60px -30px #000;animation:up 1.1s .4s var(--ease) both}
-.tabs{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:5px;margin-bottom:12px;background:#06070c;border:1px solid var(--line);border-radius:22px}
-#ind{position:absolute;top:5px;bottom:5px;left:5px;width:calc((100% - 10px)/5);border-radius:17px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--a) 55%,transparent);transition:transform .42s var(--snap)}
-.tab{position:relative;z-index:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:9px;border:0;background:transparent;color:var(--mut);font-weight:600;font-size:14px;padding:13px 6px;border-radius:17px;cursor:pointer;white-space:nowrap;transition:color .3s}
-.tab .lg{width:22px;height:22px;opacity:.55;transition:opacity .3s,transform .42s var(--snap)}
-.tab:hover{color:var(--tx)}.tab:hover .lg{opacity:.95}
-.tab[aria-selected=true]{color:var(--tx)}.tab[aria-selected=true] .lg{opacity:1;transform:scale(1.12)}
-.tab:active .lg{transform:scale(.88)}
-form{display:flex;flex-direction:column;gap:10px}
-.field{display:flex;gap:8px}
-input{flex:1;min-width:0;width:100%;height:62px;border:1px solid var(--line);border-radius:19px;background:#06070c;color:var(--tx);font:400 16px var(--sans);padding:0 20px;outline:0;transition:border-color .25s,box-shadow .25s}
-input::placeholder{color:var(--dim)}
-input:focus{border-color:color-mix(in srgb,var(--a) 75%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--a) 16%,transparent)}
-form.err input{border-color:var(--bad);animation:shake .4s}
-@keyframes shake{25%,75%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
-.btn{position:relative;overflow:hidden;border:0;cursor:pointer;font-weight:800;font-size:15px;border-radius:19px;height:62px;padding:0 24px;transition:transform .2s var(--ease),filter .2s,opacity .2s,background .2s}
-.btn:active{transform:scale(.97)}.btn:disabled{opacity:.6;pointer-events:none}
-.paste{flex:none;background:rgba(255,255,255,.07);color:var(--tx);border:1px solid var(--line);font-weight:600}
-.paste:hover{background:rgba(255,255,255,.13)}
-.go{width:100%;font-size:17px;color:#05060a;background:linear-gradient(100deg,var(--a),var(--b));box-shadow:0 16px 36px -14px color-mix(in srgb,var(--b) 75%,transparent)}
-.go::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);transform:translateX(-130%);transition:transform .9s var(--ease)}
-.go:hover::after{transform:translateX(130%)}
-.prog{height:4px;border-radius:99px;background:var(--line);overflow:hidden;display:none}
-.prog.on{display:block}
-.prog i{display:block;height:100%;width:40%;border-radius:99px;background:linear-gradient(100deg,var(--a),var(--b));animation:ld 1.1s ease-in-out infinite alternate}
-@keyframes ld{from{transform:translateX(-30%)}to{transform:translateX(160%)}}
-.msg{min-height:24px;margin:10px 4px 2px;font-size:14px;color:var(--mut);text-align:center}
+form{display:grid;grid-template-columns:1fr auto;gap:8px}
+.in{min-width:0;height:56px;padding:0 18px;border:1px solid var(--line);border-radius:14px;background:#F6F8FC;color:var(--ink);font-size:16px;outline:0;transition:border-color .2s,box-shadow .2s,background .2s}
+.in::placeholder{color:#8B94A8}
+.in:focus{background:#fff;border-color:var(--navy);box-shadow:0 0 0 4px rgba(15,23,42,.08)}
+form.err .in{border-color:var(--bad)}
+.pb{height:56px;padding:0 20px;border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;cursor:pointer;transition:background .2s}
+.pb:hover{background:#F1F4FA}
+.go{grid-column:1/-1;position:relative;height:56px;border:0;border-radius:14px;background:var(--navy);color:#fff;font-weight:800;font-size:16px;cursor:pointer;transition:transform .2s var(--ease),background .2s,opacity .2s}
+.go:hover{filter:brightness(1.15)}.go:active{transform:scale(.985)}.go:disabled{opacity:.7;cursor:progress}
+.go.ld::after{content:"";position:absolute;right:20px;top:50%;width:18px;height:18px;margin-top:-9px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(max-width:420px){form{grid-template-columns:1fr}.pb{height:48px}}
+.msg{min-height:22px;margin:10px 4px 0;text-align:center;font-size:14px;color:var(--mut)}
 .msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
-.res{display:none;margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:19px;background:#06070c}
-.res.on{display:block}
-.meta{display:flex;gap:14px;align-items:center;margin-bottom:12px}
-.meta img{width:84px;height:84px;object-fit:cover;border-radius:14px;flex:none}
-.meta b{display:block;font-size:15px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.meta small{color:var(--mut)}
-.fm{display:grid;gap:8px}
-.fm a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;border-radius:15px;font-weight:700;text-decoration:none;color:#05060a;background:linear-gradient(100deg,var(--a),var(--b))}
-.fm a small{font-weight:600;opacity:.75}
 
-.feat{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:64px auto 0;max-width:720px;text-align:left}
-.feat div{padding:20px;border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.025)}
-.feat h3{margin:0 0 6px;font-size:16px;font-weight:700}.feat p{margin:0;color:var(--mut);font-size:14px;font-weight:300;line-height:1.6}
-@media(max-width:700px){.feat{grid-template-columns:1fr}.tab span{display:none}.field{flex-wrap:wrap}.paste{width:100%;height:50px}}
-footer{padding:60px 0 calc(40px + env(safe-area-inset-bottom,0px));text-align:center;color:var(--dim);font-size:13px}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.res{display:none;margin-top:12px}.res.on{display:block}
+.vid{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.vid img{flex:none;width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:#E6EAF3}
+.vid div{min-width:0}
+.vid b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:15px;line-height:1.4}
+.vid small{color:var(--mut);font-size:13px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:720px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tile{position:relative;display:flex;flex-direction:column;gap:2px;min-height:92px;padding:14px;border-radius:14px;border:1px solid var(--line);background:#F6F8FC;color:var(--ink);text-decoration:none;transition:transform .25s var(--ease),background .25s,color .25s,border-color .25s;animation:in .6s var(--ease) both;animation-delay:calc(var(--i)*60ms)}
+.tile b{font-size:22px;font-weight:800;line-height:1.2}
+.tile small{color:var(--mut);font-size:12.5px;line-height:1.4;transition:color .25s}
+.tile svg{position:absolute;top:14px;right:14px;width:18px;height:18px;opacity:.6}
+.tile:hover{background:var(--navy);color:#fff;border-color:var(--navy);transform:translateY(-2px)}.tile:hover small{color:rgba(255,255,255,.78)}.tile:hover svg{opacity:1}
+.tile:active{transform:scale(.97)}
+.tile.busy{pointer-events:none;opacity:.8}.tile.busy svg{display:none}
+.tile.busy::after{content:"";position:absolute;top:14px;right:14px;width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+.hint{margin:10px 4px 0;font-size:13px;color:var(--mut)}
+
+nav{display:flex;gap:26px;font-size:14px;font-weight:600}
+nav a{color:var(--mut);text-decoration:none;transition:color .2s}nav a:hover{color:var(--ink)}
+@media(max-width:640px){nav{display:none}}
+.sec{max-width:1000px;margin:0 auto;padding:clamp(44px,7vw,84px) 20px 0}
+.sec h2{margin:0 0 8px;font-size:clamp(24px,4vw,36px);line-height:1.2;font-weight:800;letter-spacing:-.015em}
+.sec>p{margin:0 0 26px;color:var(--mut);max-width:560px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.c{padding:22px;border-radius:20px;background:#fff;border:1px solid var(--line);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.c i{display:grid;place-items:center;width:38px;height:38px;margin-bottom:14px;border-radius:12px;background:var(--acc);color:#fff;font:800 16px/1 var(--sans);font-style:normal}
+.c h3{margin:0 0 6px;font-size:17px}.c p{margin:0;color:var(--mut);font-size:14.5px}
+.faq{display:grid;gap:10px;max-width:760px}
+details{border-radius:16px;background:#fff;border:1px solid var(--line)}
+summary{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 20px;font-weight:600;cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";flex:none;font-size:22px;line-height:1;color:var(--acc);transition:transform .3s var(--ease)}
+details[open] summary::after{transform:rotate(45deg)}
+details p{margin:0;padding:0 20px 18px;color:var(--mut);font-size:15px}
+footer{max-width:1000px;margin:clamp(48px,8vw,90px) auto 0;padding:28px 20px calc(30px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px 28px;color:#566074;font-size:13.5px}
+footer div{display:flex;gap:20px;flex-wrap:wrap}footer a{color:inherit;text-decoration:none}footer a:hover{color:var(--ink)}
+footer small{flex-basis:100%;color:#6B7489;font-size:12.5px}
+.bl{position:fixed;left:50%;top:50%;width:62vmax;height:62vmax;margin:-31vmax 0 0 -31vmax;border-radius:50%;pointer-events:none;z-index:-1;will-change:transform;background:radial-gradient(closest-side,var(--bc),transparent)}
+.bl:nth-child(1){--bc:var(--c1);transform:translate(-30vw,-22vh)}.bl:nth-child(2){--bc:var(--c2);transform:translate(30vw,-18vh)}.bl:nth-child(3){--bc:var(--c3);transform:translate(26vw,30vh)}.bl:nth-child(4){--bc:var(--c4);transform:translate(-28vw,30vh)}
+.js .rs{opacity:0;transform:translate3d(0,28px,0);transition:opacity .9s var(--ease),transform .9s var(--ease);transition-delay:var(--d,0ms)}
+.js .rs.on{opacity:1;transform:none}
+.ch{display:inline-block;animation:chr .95s var(--ease) both;animation-delay:calc(var(--k)*26ms + 150ms)}
+@keyframes chr{from{opacity:0;transform:translate3d(0,.7em,0) rotate(6deg)}}
+.pg{position:fixed;left:0;top:0;width:100%;height:3px;transform-origin:0 50%;transform:scaleX(0);background:var(--acc);z-index:50;pointer-events:none}
+.card{position:relative}.card>*{position:relative}
+.sky{position:fixed;inset:0;z-index:-2;pointer-events:none;background:radial-gradient(1.2px 1.2px at 24px 38px,#fff,transparent),radial-gradient(1px 1px at 120px 90px,rgba(255,255,255,.8),transparent),radial-gradient(1.4px 1.4px at 180px 170px,#cfe0ff,transparent),radial-gradient(1px 1px at 70px 190px,rgba(255,255,255,.7),transparent),radial-gradient(1.1px 1.1px at 50px 60px,#fff,transparent),radial-gradient(1px 1px at 200px 140px,rgba(255,255,255,.75),transparent),radial-gradient(1.3px 1.3px at 260px 270px,#cfe0ff,transparent),radial-gradient(120% 85% at 50% -10%,#2A52D6 0,#12297D 38%,#060C33 78%);background-size:220px 220px,220px 220px,220px 220px,220px 220px,313px 313px,313px 313px,313px 313px,100% 100%}
+.sky::after{content:"";position:absolute;inset:0;background:radial-gradient(1.6px 1.6px at 90px 60px,#fff,transparent),radial-gradient(1.4px 1.4px at 40px 150px,#fff,transparent);background-size:260px 260px;animation:tw 5s ease-in-out infinite alternate}
+@keyframes tw{from{opacity:.1}to{opacity:.9}}
+.bl{background:radial-gradient(closest-side,color-mix(in srgb,var(--bc) 34%,transparent),transparent)!important}
+:focus-visible{outline-color:#8FB0FF}
+.logo,nav a:hover,.sec h2,h1,footer a:hover,footer b{color:#fff}
+.lead,.sec>p,nav a,footer{color:rgba(255,255,255,.72)}
+footer{border-top-color:rgba(255,255,255,.14)}footer small{color:rgba(255,255,255,.5)}
+.card,.c,details{color:var(--ink)}
+.pg{background:#9DB8FF}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
 </style>
+<script>document.documentElement.className="js"</script>
 </head>
 <body>
-<div class="aur" aria-hidden="true"><i></i><i></i></div>
-
+<div class="sky" aria-hidden="true"></div>
+<div aria-hidden="true"><div class="bl"></div><div class="bl"></div><div class="bl"></div><div class="bl"></div></div>
 <header>
-  <div class="wrap">
-    <div class="bar">
-      <a class="logo" href="#"><b>MOON</b> SOCIAL VIDEO DOWNLOAD</a>
-      <nav class="top">
-        <a href="#tool">გადმოწერა</a>
-        <a href="#info">ინფორმაცია</a>
-      </nav>
-    </div>
-  </div>
+  <a class="logo" href="#">MOON</a>
+  <nav><a href="#how">როგორ მუშაობს</a><a href="#features">შესაძლებლობები</a><a href="#faq">კითხვები</a></nav>
 </header>
 
 <main>
-<section class="hero">
-  <button class="orb o1" type="button" data-p="0" aria-label="TikTok"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#111"/><path d="M13 5v9.2a2.4 2.4 0 1 1-2.4-2.4" fill="none" stroke="#25f4ee" stroke-width="2"/><path d="M13 5c.3 2 1.6 3.2 3.6 3.4" fill="none" stroke="#fe2c55" stroke-width="2"/></svg></button>
-  <button class="orb o2" type="button" data-p="1" aria-label="Instagram"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#c13584"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/></svg></button>
-  <button class="orb o3" type="button" data-p="2" aria-label="Facebook"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#1877f2"/><path d="M13.5 19v-6h2l.4-2.4h-2.4V9.2c0-.7.3-1.2 1.3-1.2h1.2V5.9c-.3 0-1-.1-1.8-.1-1.9 0-3 1.1-3 3.100v1.700H9v2.400h2.200v6z" fill="#fff"/></svg></button>
-  <button class="orb o4" type="button" data-p="3" aria-label="YouTube"><svg class="lg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#ff0033"/><path d="M10 8.500v7l6-3.500z" fill="#fff"/></svg></button>
+  <h1>ჩასვი ბმული.<br>აიღე ვიდეო.</h1>
+  <p class="lead rv" style="--i:1">TikTok, Instagram, Facebook, YouTube და X. სწრაფად, რეგისტრაციის გარეშე.</p>
 
-  <div class="wrap">
-    <h1><span class="ln"><span>გადმოწერე ვიდეო</span></span><span class="ln"><span>მარტივად და სწრაფად</span></span></h1>
-    <p class="lead">ჩასვი ვიდეოს ბმული, აირჩიე პლატფორმა და დააჭირე გადმოწერას.</p>
-
-    <div class="tool" id="tool">
-      <div class="tabs" role="tablist">
-        <div id="ind"></div>
-        <button class="tab" role="tab" aria-selected="true" data-i="0"><svg class="lg" viewBox="0 0 24 24"><path d="M13 4v10.200a3 3 0 1 1-3-3" fill="none" stroke="#25f4ee" stroke-width="2.200"/><path d="M13 4c.3 2.400 1.800 3.800 4 4" fill="none" stroke="#fe2c55" stroke-width="2.200"/></svg><span>TikTok</span></button>
-        <button class="tab" role="tab" aria-selected="false" data-i="1"><svg class="lg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="#e1306c" stroke-width="2"/><circle cx="12" cy="12" r="3.500" fill="none" stroke="#e1306c" stroke-width="2"/></svg><span>Instagram</span></button>
-        <button class="tab" role="tab" aria-selected="false" data-i="2"><svg class="lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#1877f2"/><path d="M13 20v-6.500h2l.4-2.500H13V9.500c0-.7.3-1.200 1.300-1.200h1.200V6.200c-.3 0-1-.1-1.800-.1-1.900 0-3 1.100-3 3.100V11H8.600v2.500H10.700V20z" fill="#fff"/></svg><span>Facebook</span></button>
-        <button class="tab" role="tab" aria-selected="false" data-i="3"><svg class="lg" viewBox="0 0 24 24"><rect x="2.500" y="5.500" width="19" height="13" rx="4" fill="#ff0033"/><path d="M10 9v6l5-3z" fill="#fff"/></svg><span>YouTube</span></button>
-        <button class="tab" role="tab" aria-selected="false" data-i="4"><svg class="lg" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>სხვა</span></button>
-      </div>
-
-      <form id="f" novalidate>
-        <div class="field">
-          <input id="u" type="url" inputmode="url" autocomplete="off" placeholder="ჩასვი ბმული აქ..." aria-label="ვიდეოს ბმული">
-          <button class="btn paste" id="p" type="button">ჩასმა</button>
-        </div>
-        <button class="btn go" id="g" type="submit">გადმოწერა</button>
-        <div class="prog" id="pr"><i></i></div>
-      </form>
-      <div class="msg" id="m" role="status" aria-live="polite"></div>
-      <div class="res" id="r"><div class="meta"><img id="th" alt="" hidden><div><b id="ti"></b><small id="du"></small></div></div><div id="fm" class="fm"></div></div>
-    </div>
-
-    <div class="feat" id="info">
-      <div><h3>სწრაფი</h3><p>ბმულის ჩასმა და ერთი დაწკაპუნება.</p></div>
-      <div><h3>მოსახერხებელი</h3><p>მუშაობს ტელეფონზეც და კომპიუტერზეც.</p></div>
-      <div><h3>უსაფრთხო</h3><p>რეგისტრაცია არ არის საჭირო.</p></div>
+  <div class="card rv" style="--i:2" id="tool">
+    <div class="tabs" id="tabs" role="tablist"><div class="ind" id="ind"></div></div>
+    <form id="f" novalidate>
+      <input class="in" id="u" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="ვიდეოს ბმული">
+      <button class="pb" id="p" type="button">ჩასმა</button>
+      <button class="go" id="g" type="submit">გადმოწერა</button>
+    </form>
+    <div class="msg" id="m" role="status" aria-live="polite"></div>
+    <div class="res" id="r">
+      <div class="vid"><img id="th" alt="" hidden><div><b id="ti"></b><small id="du"></small></div></div>
+      <div class="tiles" id="tl"></div>
+      <p class="hint" id="hi" hidden>HD ვიდეოს ხმა ცალკეა: ხმისთვის ჩამოტვირთე „აუდიოც“.</p>
     </div>
   </div>
-</section>
-</main>
 
-<footer><div class="wrap">გადმოწერეთ მხოლოდ ის კონტენტი, რომლის გამოყენების უფლებაც გაქვთ.</div></footer>
+  </main>
+<section class="sec" id="how">
+  <h2>როგორ მუშაობს</h2><p>სამი ნაბიჯი, არანაირი რეგისტრაცია.</p>
+  <div class="g">
+    <div class="c"><i>1</i><h3>ჩასვი ბმული</h3><p>დააკოპირე ვიდეოს მისამართი აპლიკაციიდან ან ბრაუზერიდან და ჩასვი ველში.</p></div>
+    <div class="c"><i>2</i><h3>აირჩიე ხარისხი</h3><p>1080p, 720p, 480p ან მხოლოდ აუდიო. ჩანს ის, რაც ვიდეოს რეალურად აქვს.</p></div>
+    <div class="c"><i>3</i><h3>ჩამოტვირთე</h3><p>დააჭირე არჩეულ ფილას და ფაილი შეინახება შენს მოწყობილობაზე.</p></div>
+  </div>
+</section>
+<section class="sec" id="features">
+  <h2>რატომ MOON</h2><p>სწრაფი, მარტივი და ყველა პლატფორმისთვის ერთ ადგილას.</p>
+  <div class="g">
+    <div class="c"><h3>5 პლატფორმა</h3><p>TikTok, Instagram, Facebook, YouTube და X ერთ გვერდზე.</p></div>
+    <div class="c"><h3>სწრაფი</h3><p>ბმულის ჩასმა და ერთი დაჭერა. ჩამოტვირთვა მალევე იწყება.</p></div>
+    <div class="c"><h3>ყველა მოწყობილობა</h3><p>მუშაობს ტელეფონზე, პლანშეტზე და კომპიუტერზე, აპლიკაციის გარეშე.</p></div>
+    <div class="c"><h3>უფასო</h3><p>ანგარიში და ინსტალაცია არ გჭირდება.</p></div>
+  </div>
+</section>
+<section class="sec" id="faq">
+  <h2>ხშირი კითხვები</h2>
+  <div class="faq">
+    <details><summary>უფასოა გადმოწერა?</summary><p>დიახ, სერვისი უფასოა და რეგისტრაცია არ არის საჭირო.</p></details>
+    <details><summary>რატომ არ ჩანს 1080p?</summary><p>ხარისხი იმდენია, რამდენადაც ორიგინალი ვიდეო არის ატვირთული. თუ ვიდეო 720p-შია, 1080p ვარიანტი არ გამოჩნდება.</p></details>
+    <details><summary>YouTube-ის HD ვიდეოს რატომ არ აქვს ხმა?</summary><p>YouTube HD ვიდეოსა და ხმას ცალ-ცალკე ინახავს. ხმისთვის ჩამოტვირთე „აუდიოც“ და გააერთიანე ორივე ფაილი.</p></details>
+    <details><summary>როგორ გადმოვწერო iPhone-ზე?</summary><p>გახსენი საიტი Safari-ში, ხანგრძლივად დააჭირე ფილას და აირჩიე „Download Linked File“. ფაილი გამოჩნდება აპლიკაცია Files → Downloads-ში.</p></details>
+    <details><summary>რატომ არ იწერება Instagram-ის ან Facebook-ის ზოგი ვიდეო?</summary><p>დახურული ანგარიშის ან ავტორიზაციის მომთხოვნი პოსტი ვერ ჩამოიტვირთება. ბმული უნდა იყოს საჯარო.</p></details>
+    <details><summary>კანონიერია გადმოწერა?</summary><p>გადმოწერეთ მხოლოდ საკუთარი ან გამოყენების უფლების მქონე კონტენტი. პასუხისმგებლობა გადმოწერილი მასალის გამოყენებაზე თქვენზეა.</p></details>
+  </div>
+</section>
+<footer>
+  <b>MOON</b>
+  <div><a href="#tool">გადმოწერა</a><a href="#how">როგორ მუშაობს</a><a href="#features">შესაძლებლობები</a><a href="#faq">კითხვები</a></div>
+  <small>© 2026 MOON. საიტი არ არის დაკავშირებული TikTok-თან, Instagram-თან, Facebook-თან, YouTube-თან ან X-თან. ყველა სავაჭრო ნიშანი მათ მფლობელებს ეკუთვნის.</small>
+</footer>
 
 <script>
 (function(){
-  "use strict";
-  var API_URL = "/api/extract";
-  // YouTube API (vynex.ai-ის კოდიდან):
-  var YT_BASE = "https://vynex.ai/api/tools/youtube-video";
-  var YT_INFO = YT_BASE;                 // GET ?url=...
-  var YT_VIDEO = YT_BASE + "/download";  // GET ?id=..&height=..
-  var YT_AUDIO = YT_BASE + "/audio";     // GET ?id=..&format_id=..
-  function isYT(v){try{return /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/.test(new URL(v).hostname)}catch(e){return false}}
-  function mb(n){return n?(n<1048576?(n/1024).toFixed(0)+" KB":(n/1048576).toFixed(1)+" MB"):""}
-  function renderLinks(items){
-    var fm=$("#fm");fm.textContent="";
-    items.forEach(function(o){
-      var a=document.createElement("a");a.href=o.url;a.target="_blank";a.rel="noopener";
-      a.textContent=o.label;
-      if(o.note){var sm=document.createElement("small");sm.textContent=o.note;a.appendChild(sm)}
-      fm.appendChild(a);
+"use strict";
+var API_URL="/api/extract";
+var YT_BASE="https://vynex.ai/api/tools/youtube-video", YT_VIDEO=YT_BASE+"/download", YT_AUDIO=YT_BASE+"/audio";
+var $=function(s){return document.querySelector(s)};
+var P=[
+{k:"tiktok",n:"TikTok",ph:"https://www.tiktok.com/@user/video/…",re:/tiktok\.com$/,d:"M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 0 1-2.59 2.5 2.59 2.59 0 0 1 0-5.18c.27 0 .53.04.77.12V9.68a5.7 5.7 0 0 0-.77-.05 5.68 5.68 0 1 0 5.68 5.68V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.22-1.48z"},
+{k:"instagram",n:"Instagram",ph:"https://www.instagram.com/reel/…",re:/(instagram\.com|instagr\.am)$/,d:"M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm5.25-3.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z"},
+{k:"facebook",n:"Facebook",ph:"https://www.facebook.com/watch/?v=…",re:/(facebook\.com|fb\.watch|fb\.com)$/,d:"M13.5 21v-8h2.7l.4-3.1h-3.1V8c0-.9.25-1.5 1.55-1.5h1.65V3.7c-.3 0-1.25-.1-2.4-.1-2.4 0-4.05 1.45-4.05 4.15v2.15H7.5V13h2.75v8z"},
+{k:"youtube",n:"YouTube",ph:"https://www.youtube.com/watch?v=…",re:/(youtube\.com|youtu\.be|youtube-nocookie\.com)$/,d:"M21.6 7.2a2.5 2.5 0 0 0-1.76-1.77C18.3 5 12 5 12 5s-6.3 0-7.84.43A2.5 2.5 0 0 0 2.4 7.2C2 8.76 2 12 2 12s0 3.24.4 4.8a2.5 2.5 0 0 0 1.76 1.77C5.7 19 12 19 12 19s6.3 0 7.84-.43a2.5 2.5 0 0 0 1.76-1.77C22 15.24 22 12 22 12s0-3.24-.4-4.8zM10 15V9l5.2 3z"},
+{k:"x",n:"X",ph:"https://x.com/user/status/…",re:/(x\.com|twitter\.com)$/,d:"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"}];
+var tabs=$("#tabs"),ind=$("#ind"),f=$("#f"),u=$("#u"),m=$("#m"),g=$("#g"),r=$("#r"),tl=$("#tl"),cur=0,btns=[];
+P.forEach(function(p,i){
+  var b=document.createElement("button");b.type="button";b.className="tab";b.setAttribute("role","tab");b.setAttribute("aria-label",p.n);
+  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="'+p.d+'"/></svg><span>'+p.n+'</span>';
+  b.addEventListener("click",function(){setTab(i);u.focus({preventScroll:true})});
+  tabs.appendChild(b);btns.push(b);
+});
+function setTab(i){cur=i;document.documentElement.setAttribute("data-p",P[i].k);btns.forEach(function(b,k){b.setAttribute("aria-selected",k===i)});ind.style.transform="translate3d("+(i*100)+"%,0,0)";u.placeholder=P[i].ph}
+function host(v){try{return new URL(v).hostname}catch(e){return ""}}
+function detect(v){var h=host(v);for(var i=0;i<P.length;i++)if(P[i].re.test(h))return i;return -1}
+function isYT(v){return P[3].re.test(host(v))}
+function msg(t,c){m.textContent=t;m.className="msg"+(c?" "+c:"")}
+u.addEventListener("input",function(){var i=detect(u.value.trim());if(i>-1&&i!==cur)setTab(i)});
+$("#p").addEventListener("click",function(){
+  if(!navigator.clipboard||!navigator.clipboard.readText){msg("ჩასვი ხელით (Ctrl+V)","bad");u.focus();return}
+  navigator.clipboard.readText().then(function(t){u.value=t.trim();u.dispatchEvent(new Event("input"));u.focus()}).catch(function(){msg("ბუფერზე წვდომა დაიბლოკა. ჩასვი ხელით.","bad")});
+});
+
+function mb(n){return n?(n<1048576?Math.round(n/1024)+" KB":(n/1048576).toFixed(1)+" MB"):""}
+function sub(h){return h>=1080?"Full HD":h>=720?"HD":h>0?"SD":"ორიგინალი"}
+// items: {t,s,url,ext,ns}
+function show(info,items,note){
+  var th=$("#th");if(info.thumb){th.src=info.thumb;th.hidden=false}else th.hidden=true;
+  $("#ti").textContent=info.title||"";$("#du").textContent=info.meta||"";
+  tl.textContent="";var ns=false;
+  items.slice(0,4).forEach(function(o,i){
+    var a=document.createElement("a");a.className="tile";a.style.setProperty("--i",i);a.href=o.url;
+    if(o.ext){a.target="_blank";a.rel="noopener"}else a.setAttribute("download","");
+    a.innerHTML='<b></b><small></small><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    a.firstChild.textContent=o.t;a.children[1].textContent=o.s;if(o.ns)ns=true;
+    a.addEventListener("click",function(){
+      if(a.classList.contains("busy"))return;
+      var s=a.children[1],old=s.textContent;a.classList.add("busy");s.textContent="ემზადება…";
+      setTimeout(function(){a.classList.remove("busy");s.textContent=old},9000);
     });
-  }
-  function ytFlow(v){
-    return fetch(YT_INFO+"?url="+encodeURIComponent(v),{headers:{Accept:"application/json"}})
-      .then(function(x){return x.json().then(function(d){if(!x.ok)throw d;return d})})
-      .then(function(d){
-        var th=$("#th");
-        if(d.thumbnail){th.src=d.thumbnail;th.hidden=false}else th.hidden=true;
-        $("#ti").textContent=d.title||"";
-        var secs=d.duration|0, dur=secs?Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0"):"";
-        $("#du").textContent=["YouTube",d.channel,dur].filter(Boolean).join(" • ");
-        var items=[], noSound=false;
-        (d.formats||[]).forEach(function(f){
-          if(!f.has_audio)noSound=true;
-          items.push({label:"MP4 "+f.label,note:[mb(f.size),f.has_audio?"":"ხმის გარეშე"].filter(Boolean).join(" • "),
-            url:f.url||YT_VIDEO+"?id="+encodeURIComponent(d.id)+"&height="+f.height});
-        });
-        (d.audio||[]).forEach(function(f){
-          items.push({label:"M4A აუდიო",note:[f.bitrate,mb(f.size)].filter(Boolean).join(" • "),
-            url:f.url||YT_AUDIO+"?id="+encodeURIComponent(d.id)+"&format_id="+encodeURIComponent(f.format_id)});
-        });
-        renderLinks(items);r.classList.add("on");
-        msg(noSound?"HD ვიდეოს ხმა ცალკეა: ჩამოტვირთე MP4 და M4A, ან აირჩიე 360p (ხმით).":"მზადაა! აირჩიე ხარისხი.","ok");
-      });
-  }
-
-  var themes = [
-    ["#25f4ee","#fe2c55","https://www.tiktok.com/..."],
-    ["#feda75","#d62976","https://www.instagram.com/reel/..."],
-    ["#4da3ff","#1877f2","https://www.facebook.com/watch/..."],
-    ["#ff6b6b","#ff0033","https://www.youtube.com/watch?v=..."],
-    ["#a78bfa","#25f4ee","ჩასვი ვიდეოს ბმული..."]
-  ];
-  var $=function(s){return document.querySelector(s)};
-  var tabs=[].slice.call(document.querySelectorAll(".tab"));
-  var ind=$("#ind"),f=$("#f"),u=$("#u"),m=$("#m"),g=$("#g"),pr=$("#pr"),r=$("#r"),cur=0;
-
-  function setTab(i){
-    cur=i;
-    tabs.forEach(function(t,k){t.setAttribute("aria-selected",k===i)});
-    ind.style.transform="translateX("+(i*100)+"%)";
-    var t=themes[i], root=document.documentElement;
-    root.style.setProperty("--a",t[0]);root.style.setProperty("--b",t[1]);
-    u.placeholder=t[2];
-    msg("");r.classList.remove("on");
-  }
-  function msg(t,c){m.textContent=t;m.className="msg"+(c?" "+c:"")}
-  tabs.forEach(function(t,k){t.addEventListener("click",function(){setTab(k)})});
-  [].forEach.call(document.querySelectorAll(".orb"),function(o){
-    o.addEventListener("click",function(){setTab(+o.dataset.p);$("#tool").scrollIntoView({behavior:"smooth"});u.focus({preventScroll:true})});
+    tl.appendChild(a);
   });
+  $("#hi").hidden=!ns;r.classList.add("on");msg("მზადაა! აირჩიე ხარისხი.","ok");
+}
 
-  $("#p").addEventListener("click",function(){
-    if(!navigator.clipboard||!navigator.clipboard.readText){msg("ჩასვი ხელით (Ctrl+V)","bad");u.focus();return}
-    navigator.clipboard.readText().then(function(t){u.value=t.trim();u.focus()}).catch(function(){msg("ბუფერზე წვდომა დაიბლოკა — ჩასვი ხელით","bad")});
+// ---- YouTube (vynex API): 1080 / 720 / 480 + აუდიო
+function ytFlow(v){
+  return fetch(YT_BASE+"?url="+encodeURIComponent(v),{headers:{Accept:"application/json"}})
+  .then(function(x){return x.json().then(function(d){if(!x.ok)throw d;return d})})
+  .then(function(d){
+    var fm=d.formats||[],items=[];
+    [1080,720,480].forEach(function(h){
+      var x=fm.filter(function(q){return +q.height===h})[0];if(!x)return;
+      items.push({t:h+"p",s:[sub(h),mb(x.size),x.has_audio?"":"ხმის გარეშე"].filter(Boolean).join(" · "),ns:!x.has_audio,ext:1,
+        url:x.url||YT_VIDEO+"?id="+encodeURIComponent(d.id)+"&height="+x.height});
+    });
+    if(!items.length&&fm.length){var b=fm.slice().sort(function(a,c){return c.height-a.height})[0];
+      items.push({t:b.height+"p",s:[mb(b.size),b.has_audio?"":"ხმის გარეშე"].filter(Boolean).join(" · "),ns:!b.has_audio,ext:1,url:b.url||YT_VIDEO+"?id="+encodeURIComponent(d.id)+"&height="+b.height})}
+    var au=(d.audio||[]).slice().sort(function(a,c){return parseInt(c.bitrate)-parseInt(a.bitrate)})[0];
+    if(au)items.push({t:"აუდიო",s:["M4A",mb(au.size)].filter(Boolean).join(" · "),ext:1,url:au.url||YT_AUDIO+"?id="+encodeURIComponent(d.id)+"&format_id="+encodeURIComponent(au.format_id)});
+    var s=d.duration|0;
+    show({thumb:d.thumbnail,title:d.title,meta:["YouTube",d.channel,s?Math.floor(s/60)+":"+String(s%60).padStart(2,"0"):""].filter(Boolean).join(" · ")},items);
   });
-
-  document.querySelector(".tool").addEventListener("pointermove",function(e){
-    var b=this.getBoundingClientRect();
-    this.style.setProperty("--mx",(e.clientX-b.left)+"px");this.style.setProperty("--my",(e.clientY-b.top)+"px");
+}
+// ---- თქვენი სერვერი: /api/extract
+function ownFlow(v){
+  return fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})})
+  .then(function(x){return x.json().then(function(d){if(!x.ok)throw d;return d})})
+  .then(function(d){
+    var vids=[],au=null;
+    (d.formats||[]).forEach(function(o){
+      if(/MP3/i.test(o.label)){au=o;return}
+      var h=parseInt((o.label.match(/(\d{3,4})p/)||[])[1])||0;
+      if(h===0||h===1080||h===720||h===480)vids.push({h:h,o:o});
+    });
+    vids=vids.slice(0,3);
+    var items=vids.map(function(q){return {t:q.h?q.h+"p":"ვიდეო",s:q.o.note&&q.h<720?q.o.note:sub(q.h),url:q.o.url}});
+    if(au)items.push({t:"აუდიო",s:"MP3",url:au.url});
+    show({thumb:d.thumbnail,title:d.title,meta:[d.platform,d.duration].filter(Boolean).join(" · ")},items);
   });
+}
 
-  f.addEventListener("submit",function(e){
-    e.preventDefault();r.classList.remove("on");f.classList.remove("err");
-    var v=u.value.trim(),ok=false;
-    try{var p=new URL(v);ok=/^https?:$/.test(p.protocol)}catch(_){}
-    if(!ok){void f.offsetWidth;f.classList.add("err");msg("შეიყვანე სწორი ბმული (https://...)","bad");return}
-    var errs={login:"ეს ვიდეო დახურულია ან საჭიროებს ავტორიზაციას.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
-    g.disabled=true;pr.classList.add("on");msg("მუშავდება...");
-    (isYT(v)?ytFlow(v):fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})})
-      .then(function(x){return x.json().then(function(d){if(!x.ok)throw d;return d})})
-      .then(function(d){
-        var th=$("#th");
-        if(d.thumbnail){th.src=d.thumbnail;th.hidden=false}else th.hidden=true;
-        $("#ti").textContent=d.title||"";
-        $("#du").textContent=[d.platform,d.duration].filter(Boolean).join(" • ");
-        var fm=$("#fm");fm.textContent="";
-        (d.formats||[]).forEach(function(o){
-          var a=document.createElement("a");a.href=o.url;a.setAttribute("download","");
-          a.textContent=o.label;
-          if(o.note){var sm=document.createElement("small");sm.textContent=o.note;a.appendChild(sm)}
-          fm.appendChild(a);
-        });
-        r.classList.add("on");msg("მზადაა! აირჩიე ხარისხი.","ok");
-      }))
-      .catch(function(e){
-        msg(e&&e.error&&!e.code&&isYT(v)?e.error:e&&e.code&&errs[e.code]||(e&&e.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad")
-      })
-      .finally(function(){g.disabled=false;pr.classList.remove("on")});
-  });
-
-  document.addEventListener("visibilitychange",function(){document.documentElement.classList.toggle("off",document.hidden)});
-  setTab(0);
+var errs={login:"ეს ვიდეო დახურულია ან პლატფორმა ავტორიზაციას ითხოვს. დახურული პოსტი ვერ ჩამოიტვირთება.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
+f.addEventListener("submit",function(e){
+  e.preventDefault();r.classList.remove("on");f.classList.remove("err");
+  var v=u.value.trim(),ok=false;
+  try{ok=/^https?:$/.test(new URL(v).protocol)}catch(_){}
+  if(!ok){f.classList.add("err");msg("შეიყვანე სწორი ბმული (https://...)","bad");u.focus();return}
+  g.disabled=true;g.classList.add("ld");msg("მუშავდება…");
+  (isYT(v)?ytFlow(v):ownFlow(v))
+  .catch(function(er){
+    msg(er&&er.code&&errs[er.code]||(er&&er.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":er&&er.error&&isYT(v)?er.error:"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad");
+  })
+  .then(function(){g.disabled=false;g.classList.remove("ld")});
+});
+setTab(0);
+})();
+(function(){
+var rm=matchMedia("(prefers-reduced-motion:reduce)").matches,Q=function(x){return document.querySelector(x)},A=function(x){return [].slice.call(document.querySelectorAll(x))};
+var h=Q("h1");
+if(!rm){h.setAttribute("aria-label",h.textContent);var k=0;
+  h.innerHTML=h.innerHTML.split("<br>").map(function(l){return l.split("").map(function(c){return c===" "?" ":'<span class="ch" aria-hidden="true" style="--k:'+(k++)+'">'+c+"</span>"}).join("")}).join("<br>")}
+var els=A(".sec h2,.sec>p,.c,details,footer");els.forEach(function(e){e.classList.add("rs")});
+if(!rm&&"IntersectionObserver" in window){
+  var io=new IntersectionObserver(function(en){en.forEach(function(x){if(!x.isIntersecting)return;var t=x.target;t.style.setProperty("--d",Math.min([].indexOf.call(t.parentNode.children,t),5)*90+"ms");t.classList.add("on");io.unobserve(t)})},{rootMargin:"0px 0px -8% 0px",threshold:.12});
+  els.forEach(function(e){io.observe(e)});
+}else els.forEach(function(e){e.classList.add("on")});
+if(rm)return;
+var bl=A(".bl"),B=[[-.30,-.22,.04],[.30,-.18,-.03],[.26,.30,.05],[-.28,.30,-.04]],tk=0;
+var pg=document.createElement("div");pg.className="pg";document.body.appendChild(pg);
+function upd(){tk=0;var sy=scrollY,W=innerWidth,H=innerHeight;
+  for(var i=0;i<bl.length;i++){var q=B[i];bl[i].style.transform="translate3d("+q[0]*W+"px,"+(q[1]*H-sy*q[2]*1.5)+"px,0)"}
+  var m=document.documentElement.scrollHeight-H;pg.style.transform="scaleX("+(m>0?sy/m:0)+")"}
+addEventListener("scroll",function(){if(!tk)tk=requestAnimationFrame(upd)},{passive:true});
+addEventListener("resize",upd);upd();
 })();
 </script>
 </body>
