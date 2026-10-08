@@ -136,41 +136,6 @@ function videosOf(info) {
   return list.map((e, i) => ({e, i: i + 1})).filter(v => isVideo(v.e));
 }
 
-
-// ---- YouTube fallback through Apify (used only when yt-dlp is blocked: "Sign in to confirm you're not a bot") ----
-// Render env: APIFY_TOKEN (required), APIFY_ACTOR (default below), APIFY_INPUT (JSON template, {{url}} is replaced), APIFY_MAX_USD (cost cap per video)
-const APIFY_TOKEN = process.env.APIFY_TOKEN || "";
-const APIFY_ACTOR = process.env.APIFY_ACTOR || "UUhJDfKJT2SsXdclR";
-const APIFY_MAX_USD = process.env.APIFY_MAX_USD || "2";
-const APIFY_TIMEOUT = Math.min(Number(process.env.APIFY_TIMEOUT || 280), 280);   // seconds; Apify sync endpoint allows max 300
-const APIFY_INPUT = process.env.APIFY_INPUT || '{"startUrls":[{"url":"{{url}}"}]}';
-
-function findVideoUrl(o, key = "") {
-  if (typeof o === "string") {
-    if (/^https?:\/\//.test(o) && (/\.(mp4|webm|m4v|mov)(\?|$)/i.test(o) || /apify\.com\/v2\/key-value-stores\/.+\/records\//.test(o) || /video|download|file/i.test(key))) return o;
-    return null;
-  }
-  if (Array.isArray(o)) { for (const v of o) { const r = findVideoUrl(v, key); if (r) return r; } return null; }
-  if (o && typeof o === "object") { for (const [k, v] of Object.entries(o)) { const r = findVideoUrl(v, k); if (r) return r; } }
-  return null;
-}
-
-async function apifyYt(href) {
-  const input = JSON.parse(APIFY_INPUT.split("{{url}}").join(href.replace(/\\/g, "\\\\").replace(/"/g, '\\"')));
-  const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(APIFY_ACTOR)}/run-sync-get-dataset-items?maxTotalChargeUsd=${APIFY_MAX_USD}&timeout=${APIFY_TIMEOUT}`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "Authorization": "Bearer " + APIFY_TOKEN},
-    body: JSON.stringify(input),
-    signal: AbortSignal.timeout((APIFY_TIMEOUT + 15) * 1000)
-  });
-  const text = await r.text();
-  if (!r.ok) { console.error("APIFY ERROR:", r.status, text.slice(0, 500)); throw new Error("apify failed"); }
-  const items = JSON.parse(text);
-  const link = findVideoUrl(items);
-  if (!link) { console.error("APIFY: no video url in result:", text.slice(0, 800)); throw new Error("apify no url"); }
-  return {items, link};
-}
-
 async function extract(req, res) {
   let body = "";
   for await (const c of req) { body += c; if (body.length > 4096) return json(res, 413, {error: "too large"}); }
@@ -206,20 +171,7 @@ async function extract(req, res) {
       thumbnail: first.thumbnail || info.thumbnail || "", duration: d ? `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}` : "",
       formats
     });
-  } catch (err) {
-    const code = why(err.stderr);
-    if (c.k === "youtube" && APIFY_TOKEN && code !== "novideo") {
-      try {
-        const {items, link} = await apifyYt(c.href);
-        const it = Array.isArray(items) ? items[0] || {} : {};
-        return json(res, 200, {
-          platform: NAMES.youtube, title: it.title || "YouTube", thumbnail: it.thumbnail || it.thumbnailUrl || "", duration: "",
-          formats: [{label: "MP4", note: "HD", url: link}]
-        });
-      } catch (e) { console.error("apify fallback failed:", e.message); }
-    }
-    json(res, 422, {error: "video not found or not public", code});
-  }
+  } catch (err) { json(res, 422, {error: "video not found or not public", code: why(err.stderr)}); }
 }
 
 // YouTube, Instagram, Facebook and X serve many videos (feed posts especially) as separate video and audio streams.
@@ -258,7 +210,7 @@ async function fileDl(res, c, q, pick) {
 function download(req, res, params) {
   const c = check(params.get("url") || "");
   const q = params.get("q") || "", i = params.get("i") || "";
-  if (!c || !(q === "mp3" || q === "best" || /^\d{3,4}$/.test(q)) || (i && !/^([1-9]|10)$/.test(i))) return json(res, 400, {error: "bad request"});
+  if (!c || !(q === "mp3" || q === "best" || /^\d{3,4}$/.test(q)) \vert{}\vert{} (i && !/^([1-9]\vert{}10)$/.test(i))) return json(res, 400, {error: "bad request"});
   const mp3 = q === "mp3", pick = i ? ["--playlist-items", i] : [];
   if (c.k !== "tiktok" && !mp3) return fileDl(res, c, q, pick);
   const fmt = mp3 ? "ba/b" : q === "best" ? "b[ext=mp4]/b" : `b[height<=${q}][ext=mp4]/b[height<=${q}]/b`;   // TikTok video / any MP3
@@ -270,7 +222,7 @@ function download(req, res, params) {
     ff.stdin.on("error", () => {});
   }
   res.writeHead(200, {
-    "Content-Type": mp3 ? "audio/mpeg" : "video/mp4",
+    "Content-Type": mp3 ? "audio/mpeg",
     "Content-Disposition": `attachment; filename="moon-${mp3 ? "audio.mp3" : "video.mp4"}"`
   });
   out.pipe(res);
