@@ -1,6 +1,6 @@
 import http from "node:http";
 import {spawn, execFile} from "node:child_process";
-import {readFile, readdir, rm} from "node:fs/promises";
+import {readFile, readdir, rm, writeFile, stat, chmod, rename, mkdir} from "node:fs/promises";
 import {copyFileSync, createReadStream} from "node:fs";
 import os from "node:os";
 import crypto from "node:crypto";
@@ -9,12 +9,18 @@ import {fileURLToPath} from "node:url";
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8080;
-const YTDLP = process.env.YTDLP || "yt-dlp";
+let YTDLP = process.env.YTDLP || "yt-dlp";                // replaced by a fresh nightly build at runtime (see updateYtdlp)
 const PROXY = process.env.YTDLP_PROXY || "";            // optional: residential proxy for YouTube/Instagram/Facebook
 const JS_RT = process.env.YTDLP_JS_RUNTIME ?? "node";   // YouTube needs a JS runtime in recent yt-dlp; this server runs on node. Set to "off" to disable
-const MAX_JOBS = Number(process.env.MAX_JOBS || 3);     // parallel merge-to-file downloads
+const MAX_JOBS = Number(process.env.MAX_JOBS || 3);     // parallel downloads/merges
+const MAX_QUEUE = Number(process.env.MAX_QUEUE || 30);
 const MAX_YT_SEC = Number(process.env.MAX_YT_MIN || 60) * 60;
+const AUTO_UPDATE = process.env.YTDLP_AUTO_UPDATE !== "0"; // keep yt-dlp fresh without rebuilding the container
+const VYNEX = (process.env.VYNEX_BASE ?? "https://vynex.ai/api/tools/youtube-video").replace(/\/$/, ""); // "off" disables
+const YT_MODE = process.env.YT_MODE || "auto";          // auto: yt-dlp first, vynex if YouTube blocks this server | ytdlp | vynex
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+const TMP = path.join(os.tmpdir(), "moon");
+await mkdir(TMP, {recursive: true});
 
 const HOSTS = {
   tiktok: /(^|\.)tiktok\.com$/,
@@ -25,9 +31,9 @@ const HOSTS = {
 };
 const NAMES = {tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram", facebook: "Facebook", x: "X"};
 
-// Instagram posts, Facebook posts and age/bot-gated YouTube videos usually need a logged-in session.
+// Instagram posts, Facebook posts and age/bot-gated YouTube videos sometimes need a logged-in session.
 // Put a Netscape-format cookies.txt in a Render "Secret File" and set YTDLP_COOKIES to its path.
-const COOKIES = path.join(os.tmpdir(), "moon-cookies.txt");
+const COOKIES = path.join(TMP, "cookies.txt");
 let hasCookies = false;
 if (process.env.YTDLP_COOKIES) {
   try { copyFileSync(process.env.YTDLP_COOKIES, COOKIES); hasCookies = true; }  // copy: yt-dlp rewrites the file
@@ -35,12 +41,38 @@ if (process.env.YTDLP_COOKIES) {
 }
 
 // TikTok blocks plain requests from datacenter IPs; impersonating a real browser helps
-const base = k => [
+const base = (k, o = {}) => [
   ...(k === "tiktok" ? ["--impersonate", "chrome"] : []),
-  ...(hasCookies ? ["--cookies", COOKIES] : []),
+  ...(hasCookies && !o.noCookies ? ["--cookies", COOKIES] : []),
   ...(PROXY ? ["--proxy", PROXY] : []),
   ...(k === "youtube" && JS_RT && JS_RT !== "off" ? ["--js-runtimes", JS_RT] : [])
 ];
+
+// ---------------------------------------------------------------- yt-dlp auto-update
+// Instagram/YouTube change their internals every few weeks; an old yt-dlp inside the container is the #1 reason
+// links "suddenly stop working". Pull the latest nightly zipapp (uses the curl_cffi already installed) on boot and twice a day.
+const sh = (cmd, args, ms = 8000) => new Promise(r =>
+  execFile(cmd, args, {timeout: ms, maxBuffer: 5e6}, (e, o, er) => r(((o || "") + (er || "")) || String(e || ""))));
+let ytVersion = "";
+async function updateYtdlp() {
+  if (!AUTO_UPDATE) return;
+  const dest = path.join(TMP, "yt-dlp"), part = dest + ".part";
+  try {
+    const r = await fetch("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp", {signal: AbortSignal.timeout(90000)});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length < 1e6) throw new Error("download too small");
+    await writeFile(part, buf); await chmod(part, 0o755);
+    const v = (await sh("python3", [part, "--version"], 30000)).trim();
+    if (!/^\d{4}\.\d{2}\.\d{2}/.test(v)) throw new Error("bad binary: " + v.slice(0, 200));
+    await rename(part, dest);
+    YTDLP = dest; ytVersion = v;
+    console.log("yt-dlp updated to", v);
+  } catch (e) { console.error("yt-dlp update failed (keeping current):", e.message); }
+}
+sh(YTDLP, ["--version"]).then(v => { if (!ytVersion) ytVersion = v.trim(); });
+updateYtdlp();
+setInterval(updateYtdlp, 12 * 3600e3).unref();
 
 function ytVideo(u) {
   const p = u.pathname;
@@ -51,12 +83,16 @@ function ytVideo(u) {
 // allow only the supported platforms (also blocks SSRF to internal hosts)
 function check(raw) {
   try {
-    const u = new URL(raw);
+    const u = new URL(String(raw).trim());
     if (!/^https?:$/.test(u.protocol)) return null;
     const k = Object.keys(HOSTS).find(k => HOSTS[k].test(u.hostname));
     if (!k) return null;
-    if (k === "instagram") {            // m.instagram.com / instagr.am are not understood by yt-dlp; tracking params (igsh, utm) are useless
-      u.hostname = "www.instagram.com"; u.search = ""; u.hash = "";
+    if (k === "instagram") {
+      // m.instagram.com / instagr.am / tracking params (igsh, utm) confuse yt-dlp. Rewrite every post form
+      // (/p/ID, /reel/ID, /reels/ID, /tv/ID, /username/reel/ID) to one canonical URL.
+      u.protocol = "https:"; u.hostname = "www.instagram.com"; u.search = ""; u.hash = "";
+      const m = u.pathname.match(/\/(p|reels?|tv)\/([\w-]{5,})/);
+      if (m && !/^\/share\//.test(u.pathname)) u.pathname = `/${m[1] === "reels" ? "reel" : m[1]}/${m[2]}/`;
     }
     if (k === "facebook" && /(^|\.)fb\.com$/.test(u.hostname)) u.hostname = "www.facebook.com";
     if (k === "youtube" && !ytVideo(u)) return null;   // channels / playlists / home page are not single videos
@@ -70,13 +106,14 @@ async function resolve(href, k) {
   if ((k !== "facebook" && k !== "instagram") || !/\/share\//.test(href)) return href;
   let cur = href;
   try {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const r = await fetch(cur, {redirect: "manual", headers: {"User-Agent": UA}, signal: AbortSignal.timeout(8000)});
       const loc = r.headers.get("location");
       if (r.status < 300 || r.status >= 400 || !loc) break;
       const next = new URL(loc, cur);
-      if (!check(next.href) || /^\/(login|accounts\/login)/.test(next.pathname)) break;
-      cur = next.href;
+      const ok = check(next.href);
+      if (!ok || /^\/(login|accounts\/login)/.test(next.pathname)) break;
+      cur = ok.href;
       if (!/\/share\//.test(cur)) break;
     }
   } catch {}
@@ -87,16 +124,17 @@ const hits = new Map();
 function limited(ip) {
   const n = Date.now(), a = (hits.get(ip) || []).filter(t => n - t < 60000);
   a.push(n); hits.set(ip, a);
-  return a.length > 12; // 12 requests per minute per IP
+  return a.length > 20; // 20 requests per minute per IP (extract + start download)
 }
+setInterval(() => { const n = Date.now(); for (const [ip, a] of hits) if (!a.some(t => n - t < 60000)) hits.delete(ip); }, 120e3).unref();
 
 function run(args, ms = 30000) {
   return new Promise((resolve, reject) => {
     const p = spawn(YTDLP, args, {stdio: ["ignore", "pipe", "pipe"]});
     let out = "", err = "";
     const t = setTimeout(() => p.kill("SIGKILL"), ms);
-    p.stdout.on("data", d => { out += d; if (out.length > 20e6) p.kill("SIGKILL"); });
-    p.stderr.on("data", d => { err += d; });
+    p.stdout.on("data", d => { out += d; if (out.length > 40e6) p.kill("SIGKILL"); });
+    p.stderr.on("data", d => { err += d; if (err.length > 1e6) err = err.slice(-200000); });
     p.on("close", code => {
       clearTimeout(t);
       if (code === 0) resolve(out);
@@ -105,24 +143,26 @@ function run(args, ms = 30000) {
         const e = new Error("extract failed"); e.stderr = err; reject(e);
       }
     });
-    p.on("error", e => { console.error("yt-dlp SPAWN ERROR:", e.message); reject(e); });
+    p.on("error", e => { console.error("yt-dlp SPAWN ERROR:", e.message); e.stderr = e.message; reject(e); });
   });
 }
 
 const json = (res, code, obj) => {
-  res.writeHead(code, {"Content-Type": "application/json; charset=utf-8"});
+  if (res.headersSent) return res.end();
+  res.writeHead(code, {"Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store"});
   res.end(JSON.stringify(obj));
 };
 
-// why did yt-dlp fail? the page shows a different message for each
+// why did yt-dlp fail? the page/app shows a different message for each
 function why(err = "") {
-  if (/no video|not a video|does not contain a video/i.test(err)) return "novideo";
+  if (/no video|not a video|does not contain a video|There is no video/i.test(err)) return "novideo";
   if (/login|log in|logged[- ]in|sign in|cookies|rate-limit|not granting access|empty media|private|not a bot|confirm your age|restricted|checkpoint|authenticat/i.test(err)) {
     console.error("HINT: platform wants a login. Set YTDLP_COOKIES (and update yt-dlp).");
     return "login";
   }
   return "notfound";
 }
+const botBlock = err => /not a bot|sign in to confirm|confirm you.re not|HTTP Error 429|po.?token/i.test(err || "");
 
 const VIDEO_EXT = /^(mp4|webm|mov|m4v|mkv)$/i;
 const heightsOf = e => (e.formats || []).filter(f => f.vcodec && f.vcodec !== "none" && (f.height || f.width))
@@ -136,134 +176,438 @@ function videosOf(info) {
   return list.map((e, i) => ({e, i: i + 1})).filter(v => isVideo(v.e));
 }
 
-async function extract(req, res) {
+// ---------------------------------------------------------------- info cache
+// The info from /api/extract is reused for the download (yt-dlp --load-info-json): one request to Instagram/YouTube
+// instead of two, which avoids most Instagram rate-limit/login walls and makes downloads start faster.
+const cache = new Map(); // href -> {t, kind:"ytdlp"|"vynex", info|data, file?}
+const CACHE_MS = 25 * 60e3;
+async function cachePut(href, entry) {
+  entry.t = Date.now();
+  if (entry.kind === "ytdlp") {
+    entry.file = path.join(TMP, "info-" + crypto.createHash("sha1").update(href).digest("hex") + ".json");
+    try { await writeFile(entry.file, JSON.stringify(entry.info)); } catch { entry.file = null; }
+  }
+  cache.set(href, entry);
+}
+function cacheGet(href) {
+  const e = cache.get(href);
+  if (e && Date.now() - e.t < CACHE_MS) return e;
+  return null;
+}
+setInterval(() => {
+  const n = Date.now();
+  for (const [h, e] of cache) if (n - e.t > CACHE_MS) { cache.delete(h); if (e.file) rm(e.file, {force: true}).catch(() => {}); }
+}, 5 * 60e3).unref();
+
+async function ytdlpInfo(c) {
+  const T = c.k === "youtube" ? 60000 : 35000;
+  const args = o => ["-J", "--no-playlist", "--playlist-end", "10", "--no-warnings", ...base(c.k, o), c.href];
+  try { return JSON.parse(await run(args(), T)); }
+  catch (e) {
+    // a stale/flagged session cookie makes Instagram/Facebook answer "checkpoint"/"login" even for public posts:
+    // retry once logged out (yt-dlp's logged-out Instagram path works for public reels/posts)
+    if (hasCookies && (c.k === "instagram" || c.k === "facebook") && why(e.stderr) !== "novideo") {
+      try { return JSON.parse(await run(args({noCookies: true}), T)); } catch {}
+    }
+    throw e;
+  }
+}
+
+// ---- YouTube through vynex (fallback when YouTube blocks this server's IP). The video and audio streams it serves
+// are separate, so the server merges them with ffmpeg: the user always gets one MP4 WITH sound.
+let ytBlockedUntil = 0;
+async function vynexInfo(href) {
+  const r = await fetch(`${VYNEX}?url=${encodeURIComponent(href)}`, {headers: {Accept: "application/json", "User-Agent": UA}, signal: AbortSignal.timeout(40000)});
+  let d = null; try { d = await r.json(); } catch {}
+  if (!r.ok || !d || !d.id) { const e = new Error("vynex failed"); e.stderr = (d && (d.error || d.message)) || ("HTTP " + r.status); throw e; }
+  return d;
+}
+async function ytInfo(c) {
+  const preferV = VYNEX !== "off" && (YT_MODE === "vynex" || (YT_MODE === "auto" && Date.now() < ytBlockedUntil));
+  if (!preferV) {
+    try { return {kind: "ytdlp", info: await ytdlpInfo(c)}; }
+    catch (e) {
+      if (YT_MODE === "ytdlp" || VYNEX === "off" || why(e.stderr) === "novideo") throw e;
+      if (botBlock(e.stderr)) ytBlockedUntil = Date.now() + 30 * 60e3;
+    }
+  }
+  try { return {kind: "vynex", data: await vynexInfo(c.href)}; }
+  catch (e) {
+    if (preferV && YT_MODE === "auto") return {kind: "ytdlp", info: await ytdlpInfo(c)};
+    throw e;
+  }
+}
+async function infoFor(c) {
+  const hit = cacheGet(c.href);
+  if (hit) return hit;
+  const entry = c.k === "youtube" ? await ytInfo(c) : {kind: "ytdlp", info: await ytdlpInfo(c)};
+  await cachePut(c.href, entry);
+  return entry;
+}
+
+const fmtDur = d => d ? `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}` : "";
+// Instagram/Facebook CDNs refuse hot-linked thumbnails: serve them through /api/thumb
+const THUMB_HOSTS = /(^|\.)(cdninstagram\.com|fbcdn\.net|ytimg\.com|twimg\.com|tiktokcdn\.com|tiktokcdn-us\.com|ibyteimg\.com|ggpht\.com)$/;
+const thumbUrl = t => { try { const u = new URL(t); return THUMB_HOSTS.test(u.hostname) ? "/api/thumb?u=" + encodeURIComponent(u.href) : ""; } catch { return ""; } };
+
+function buildFormats(c, entry) {
+  const enc = encodeURIComponent(c.href), formats = [];
+  const add = (q, i, label, note, kind, height) => formats.push({
+    label, note, q: String(q), i: i || 0, kind, height: height || 0,
+    url: `/api/download?url=${enc}&q=${q}${i ? `&i=${i}` : ""}`
+  });
+  if (entry.kind === "vynex") {
+    const d = entry.data, hs = (d.formats || []).map(f => +f.height || 0).filter(Boolean);
+    const max = Math.max(0, ...hs);
+    let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, 3);
+    if (!q.length) q = [max || "best"];
+    q.forEach((h, n) => add(h, 0, h === "best" ? "MP4" : `MP4 ${h}p`, n === 0 && h >= 720 ? "HD" : "", "video", +h || 0));
+    if ((d.audio || []).length || (d.formats || []).some(f => f.has_audio)) add("mp3", 0, "MP3", "მხოლოდ ხმა", "audio");
+    const s = Math.round(+d.duration || 0);
+    return {title: d.title || "YouTube", thumbnail: d.thumbnail || "", seconds: s, uploader: d.channel || "", formats};
+  }
+  const info = entry.info, vids = videosOf(info);
+  if (!vids.length) { const e = new Error("no video"); e.code = "novideo"; throw e; }
+  const first = vids[0].e, multi = vids.length > 1;
+  for (const {e, i} of vids) {
+    const max = Math.max(0, ...heightsOf(e));
+    let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, multi ? 1 : 3);
+    if (!q.length) q = [max || "best"];
+    const at = info.entries ? i : 0;
+    q.forEach((h, n) => add(h, at, h === "best" ? "MP4" : `MP4 ${h}p`, multi ? `ვიდეო ${formats.length + 1}` : (n === 0 && h >= 720 ? "HD" : ""), "video", +h || 0));
+  }
+  if (!multi) add("mp3", info.entries ? vids[0].i : 0, "MP3", "მხოლოდ ხმა", "audio");
+  const s = Math.round(first.duration || info.duration || 0);
+  return {title: first.title || info.title || NAMES[c.k], thumbnail: first.thumbnail || info.thumbnail || "", seconds: s,
+    uploader: first.uploader || first.channel || info.uploader || "", formats};
+}
+
+async function readBody(req) {
   let body = "";
-  for await (const c of req) { body += c; if (body.length > 4096) return json(res, 413, {error: "too large"}); }
-  let url; try { url = JSON.parse(body).url; } catch { return json(res, 400, {error: "bad request"}); }
+  for await (const ch of req) { body += ch; if (body.length > 4096) throw Object.assign(new Error("too large"), {status: 413}); }
+  return JSON.parse(body || "{}");
+}
+
+async function extract(req, res) {
+  let url; try { url = (await readBody(req)).url; } catch (e) { return json(res, e.status || 400, {error: "bad request"}); }
   const c = check(url);
-  if (!c) return json(res, 400, {error: "unsupported link"});
+  if (!c) return json(res, 400, {error: "unsupported link", code: "unsupported"});
   try {
     c.href = await resolve(c.href, c.k);
-    const info = JSON.parse(await run(["-J", "--no-playlist", "--playlist-end", "10", "--no-warnings", ...base(c.k), c.href], c.k === "youtube" ? 60000 : 30000));
-    if (info.is_live) return json(res, 422, {error: "live", code: "live"});
-    const vids = videosOf(info);
-    if (!vids.length) return json(res, 422, {error: "no video", code: "novideo"});
-    const first = vids[0].e;
-    if (c.k === "youtube" && (first.duration || 0) > MAX_YT_SEC) return json(res, 422, {error: "too long", code: "toolong"});
-
-    const enc = encodeURIComponent(c.href), multi = vids.length > 1, formats = [];
-    for (const {e, i} of vids) {
-      const max = Math.max(0, ...heightsOf(e));
-      let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, multi ? 1 : 3);
-      if (!q.length) q = [max || "best"];
-      const at = info.entries ? `&i=${i}` : "";
-      q.forEach((h, n) => formats.push({
-        label: h === "best" ? "MP4" : `MP4 ${h}p`,
-        note: multi ? `ვიდეო ${formats.length + 1}` : (n === 0 && h >= 720 ? "HD" : ""),
-        url: `/api/download?url=${enc}&q=${h}${at}`
-      }));
-    }
-    if (!multi) formats.push({label: "MP3", note: "მხოლოდ ხმა", url: `/api/download?url=${enc}&q=mp3${info.entries ? `&i=${vids[0].i}` : ""}`});
-
-    const d = Math.round(first.duration || info.duration || 0);
+    const entry = await infoFor(c);
+    if (entry.kind === "ytdlp" && entry.info.is_live) return json(res, 422, {error: "live", code: "live"});
+    const out = buildFormats(c, entry);
+    if (c.k === "youtube" && out.seconds > MAX_YT_SEC) return json(res, 422, {error: "too long", code: "toolong"});
+    const th = out.thumbnail && (c.k === "instagram" || c.k === "facebook" ? thumbUrl(out.thumbnail) || out.thumbnail : out.thumbnail);
     json(res, 200, {
-      platform: NAMES[c.k], title: first.title || info.title || NAMES[c.k],
-      thumbnail: first.thumbnail || info.thumbnail || "", duration: d ? `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}` : "",
-      formats
+      platform: NAMES[c.k], key: c.k, url: c.href, title: out.title, uploader: out.uploader,
+      thumbnail: th || "", duration: fmtDur(out.seconds), seconds: out.seconds, formats: out.formats
     });
-  } catch (err) { json(res, 422, {error: "video not found or not public", code: why(err.stderr)}); }
-}
-
-// YouTube, Instagram, Facebook and X serve many videos (feed posts especially) as separate video and audio streams.
-// They have to be merged into one mp4, and mp4 cannot be streamed to the browser, so merge into a temp file first,
-// send it, delete it. Only TikTok (single muxed file) is streamed directly.
-let busy = 0;
-async function fileDl(res, c, q, pick) {
-  if (busy >= MAX_JOBS) return json(res, 503, {error: "busy", code: "busy"});
-  busy++;
-  const id = "moon-" + crypto.randomUUID(), tmp = os.tmpdir();
-  // -S: prefer the shortest side <= q (works for vertical videos too), h264/aac so it plays everywhere
-  const sort = (q === "best" ? "res" : `res:${q}`) + ",vcodec:h264,acodec:m4a";
-  // headers go out right away so the browser shows the download and the connection stays alive while we merge
-  res.writeHead(200, {"Content-Type": "video/mp4", "Content-Disposition": `attachment; filename="moon-${c.k}.mp4"`});
-  let gone = false; res.on("close", () => { gone = true; });
-  try {
-    await run(["-q", "-f", "bv*+ba/b", "-S", sort, "--merge-output-format", "mp4", "--no-playlist", ...pick, "--no-warnings",
-      "-N", "4", "--max-filesize", "700M", ...base(c.k), "-o", path.join(tmp, id + ".%(ext)s"), c.href], 4 * 60 * 1000);
-    if (gone) return;
-    const f = (await readdir(tmp)).find(n => n.startsWith(id) && n.endsWith(".mp4"));
-    if (!f) throw new Error("no output file");
-    await new Promise(done => {
-      const s = createReadStream(path.join(tmp, f));
-      s.on("error", done); s.on("close", done);
-      res.on("close", () => s.destroy());
-      s.pipe(res);
-    });
-  } catch { res.destroy(); }
-  finally {
-    busy--;
-    const left = await readdir(tmp).catch(() => []);
-    await Promise.all(left.filter(n => n.startsWith(id)).map(n => rm(path.join(tmp, n), {force: true})));
+  } catch (err) {
+    cache.delete(c.href);
+    json(res, 422, {error: "video not found or not public", code: err.code || why(err.stderr)});
   }
 }
 
-function download(req, res, params) {
-  const c = check(params.get("url") || "");
-  const q = params.get("q") || "", i = params.get("i") || "";
- if (!c || !(q === "mp3" || q === "best" || /^\d{3,4}$/.test(q)) || (i && !/^([1-9]|10)$/.test(i))) return json(res, 400, {error: "bad request"});
-  const mp3 = q === "mp3", pick = i ? ["--playlist-items", i] : [];
-  if (c.k !== "tiktok" && !mp3) return fileDl(res, c, q, pick);
-  const fmt = mp3 ? "ba/b" : q === "best" ? "b[ext=mp4]/b" : `b[height<=${q}][ext=mp4]/b[height<=${q}]/b`;   // TikTok video / any MP3
-  const yt = spawn(YTDLP, ["-f", fmt, "--no-playlist", ...pick, "--no-warnings", ...base(c.k), "-o", "-", c.href], {stdio: ["ignore", "pipe", "ignore"]});
-  const procs = [yt]; let out = yt.stdout;
-  if (mp3) {
-    const ff = spawn("ffmpeg", ["-loglevel", "error", "-i", "pipe:0", "-vn", "-f", "mp3", "pipe:1"], {stdio: ["pipe", "pipe", "ignore"]});
-    yt.stdout.pipe(ff.stdin); procs.push(ff); out = ff.stdout;
-    ff.stdin.on("error", () => {});
+// ---------------------------------------------------------------- download jobs
+// Every download becomes a job: fetch + merge video and audio into ONE mp4 (or convert to mp3) in a temp folder,
+// then send it with a real Content-Length (the Android app shows exact progress and can resume with Range).
+const jobs = new Map(), queue = [];
+let running = 0;
+const safeName = s => String(s || "video").replace(/[\\/:*?"<>|\x00-\x1f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "video";
+
+function newJob(c, q, i) {
+  const id = crypto.randomUUID();
+  const j = {id, c, q, i, state: "queued", phase: "queued", progress: 0, created: Date.now(), dir: path.join(TMP, "job-" + id),
+    file: null, size: 0, name: "", mime: "", error: null, kill: null, readers: 0, expires: Date.now() + 30 * 60e3};
+  j.done = new Promise(r => { j._done = r; });
+  jobs.set(id, j); queue.push(j); pump();
+  return j;
+}
+function pump() {
+  while (running < MAX_JOBS && queue.length) {
+    const j = queue.shift();
+    if (j.state !== "queued") continue;
+    running++;
+    runJob(j).finally(() => { running--; pump(); });
   }
-  res.writeHead(200, {
-    "Content-Type": mp3 ? "audio/mpeg" : "video/mp4",
-    "Content-Disposition": `attachment; filename="moon-${mp3 ? "audio.mp3" : "video.mp4"}"`
+}
+function cancelJob(j) {
+  if (j.state === "queued" || j.state === "working") { j.state = "error"; j.error = "cancelled"; j.kill && j.kill(); j._done(); }
+}
+async function dropJob(j) { jobs.delete(j.id); await rm(j.dir, {recursive: true, force: true}).catch(() => {}); }
+setInterval(() => {
+  const n = Date.now();
+  for (const j of jobs.values()) if (n > j.expires && j.readers === 0) { cancelJob(j); dropJob(j); }
+}, 60e3).unref();
+
+// spawn yt-dlp/ffmpeg, report progress lines, kill on timeout or cancel
+function spawnTracked(j, cmd, args, ms, onLine) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(cmd, args, {stdio: ["ignore", "pipe", "pipe"]});
+    let err = "", buf = "";
+    const t = setTimeout(() => p.kill("SIGKILL"), ms);
+    j.kill = () => p.kill("SIGKILL");
+    p.stdout.on("data", d => {
+      buf += d; let k;
+      while ((k = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, k).trim(); buf = buf.slice(k + 1); if (line) onLine(line); }
+    });
+    p.stderr.on("data", d => { err += d; if (err.length > 1e6) err = err.slice(-200000); });
+    p.on("close", code => {
+      clearTimeout(t); j.kill = null;
+      if (code === 0) resolve();
+      else { const e = new Error(cmd + " failed"); e.stderr = err; console.error(cmd, "ERROR:", err.slice(-600)); reject(e); }
+    });
+    p.on("error", e => { clearTimeout(t); e.stderr = e.message; reject(e); });
   });
-  out.pipe(res);
-  const kill = () => procs.forEach(p => p.kill("SIGKILL"));
-  res.on("close", kill);
-  setTimeout(kill, 5 * 60 * 1000);
+}
+
+async function ytdlpJob(j, entry) {
+  const {c, q, i} = j, mp3 = q === "mp3", pick = i ? ["--playlist-items", String(i)] : [];
+  const sort = (q === "best" || mp3 ? "res" : `res:${q}`) + ",vcodec:h264,acodec:m4a";
+  const fmt = mp3 ? ["-f", "ba/b", "-x", "--audio-format", "mp3", "--audio-quality", "192K"]
+    : ["-f", "bv*+ba/b", "-S", sort, "--merge-output-format", "mp4", "--remux-video", "mp4"];
+  let stream = 0, last = 0;
+  const onLine = line => {
+    const m = line.match(/^MOONP\s+([\d.]+)%/);
+    if (m) {
+      const p = +m[1];
+      if (p + 5 < last) stream++;           // second stream (audio) started
+      last = p;
+      j.phase = "downloading";
+      j.progress = Math.min(97, Math.round(mp3 ? p * 0.9 : stream === 0 ? p * 0.85 : 85 + p * 0.12));
+    } else if (/^\[(Merger|VideoRemuxer|ExtractAudio|FixupM)/.test(line)) { j.phase = mp3 ? "converting" : "merging"; j.progress = Math.max(j.progress, 97); }
+  };
+  const common = ["--newline", "--progress-template", "download:MOONP %(progress._percent_str)s", "--no-warnings", "--no-playlist", ...pick,
+    ...fmt, "-N", "4", "--max-filesize", "1500M", "--no-part", "-o", path.join(j.dir, "media.%(ext)s")];
+  const attempts = [];
+  if (entry && entry.file) attempts.push([...common, ...base(j.c.k), "--load-info-json", entry.file]);
+  attempts.push([...common, ...base(c.k), c.href]);
+  if (hasCookies && (c.k === "instagram" || c.k === "facebook")) attempts.push([...common, ...base(c.k, {noCookies: true}), c.href]);
+  let lastErr;
+  for (const args of attempts) {
+    if (j.state !== "working") return;
+    await rm(j.dir, {recursive: true, force: true}).catch(() => {}); await mkdir(j.dir, {recursive: true});
+    stream = 0; last = 0;
+    try { await spawnTracked(j, YTDLP, args, 8 * 60e3, onLine); lastErr = null; break; }
+    catch (e) {
+      lastErr = e;
+      if (c.k === "youtube" && botBlock(e.stderr)) ytBlockedUntil = Date.now() + 30 * 60e3;
+      if (why(e.stderr) === "novideo") break;
+    }
+  }
+  if (lastErr) throw lastErr;
+}
+
+async function vynexJob(j, d) {
+  const mp3 = j.q === "mp3", want = j.q === "best" ? 1e5 : +j.q;
+  const vf = (d.formats || []).filter(f => +f.height).sort((a, b) => b.height - a.height);
+  const v = vf.find(f => +f.height <= want * 1.04) || vf[vf.length - 1];
+  const au = (d.audio || []).slice().sort((a, b) => (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0))[0];
+  const vurls = v ? [`${VYNEX}/download?id=${encodeURIComponent(d.id)}&height=${v.height}`, v.url].filter(Boolean) : [];
+  const aurls = au ? [`${VYNEX}/audio?id=${encodeURIComponent(d.id)}&format_id=${encodeURIComponent(au.format_id)}`, au.url].filter(Boolean) : [];
+  const dur = +d.duration || 0;
+  const onLine = line => {
+    const m = line.match(/^out_time_(?:us|ms)=(\d+)/);
+    if (m && dur) { j.phase = mp3 ? "converting" : "merging"; j.progress = Math.min(98, Math.round(+m[1] / 1e6 / dur * 100)); }
+  };
+  const inp = u => ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5", "-user_agent", UA, "-i", u];
+  const head = ["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y"];
+  await mkdir(j.dir, {recursive: true});
+  const tries = [];
+  if (mp3) {
+    const src = aurls.length ? aurls : vurls;
+    for (const a of src) tries.push([...head, ...inp(a), "-vn", "-c:a", "libmp3lame", "-b:a", "192k", path.join(j.dir, "media.mp3")]);
+  } else if (v && (v.has_audio || !aurls.length)) {
+    for (const x of vurls) tries.push([...head, ...inp(x), "-c", "copy", "-movflags", "+faststart", path.join(j.dir, "media.mp4")]);
+  } else {
+    for (const x of vurls) for (const a of aurls)
+      tries.push([...head, ...inp(x), ...inp(a), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+        "-shortest", "-movflags", "+faststart", path.join(j.dir, "media.mp4")]);
+  }
+  if (!tries.length) throw Object.assign(new Error("no formats"), {code: "notfound"});
+  let lastErr;
+  for (const args of tries) {
+    if (j.state !== "working") return;
+    j.phase = "downloading";
+    try { await spawnTracked(j, "ffmpeg", args, 10 * 60e3, onLine); return; } catch (e) { lastErr = e; lastErr.stderr = "notfound"; }
+  }
+  throw lastErr;
+}
+
+async function runJob(j) {
+  if (j.state !== "queued") return j._done();
+  j.state = "working"; j.phase = "preparing";
+  try {
+    await mkdir(j.dir, {recursive: true});
+    let entry = cacheGet(j.c.href);
+    if (j.c.k === "youtube" && !entry) entry = await infoFor(j.c).catch(() => null);
+    const title = entry ? (entry.kind === "vynex" ? entry.data.title : (entry.info.entries?.[(j.i || 1) - 1]?.title || entry.info.title)) : "";
+    if (entry && entry.kind === "vynex") await vynexJob(j, entry.data);
+    else {
+      try { await ytdlpJob(j, entry); }
+      catch (e) {
+        // YouTube blocked this server mid-download: fetch the same video via vynex and merge it here
+        if (j.c.k !== "youtube" || VYNEX === "off" || YT_MODE === "ytdlp" || j.state !== "working" || why(e.stderr) === "novideo") throw e;
+        const d = await vynexInfo(j.c.href);
+        await cachePut(j.c.href, {kind: "vynex", data: d});
+        await vynexJob(j, d);
+      }
+    }
+    if (j.state !== "working") return;
+    const f = (await readdir(j.dir)).find(n => n.startsWith("media.") && !/\.(part|ytdl|temp|json)$/.test(n));
+    if (!f) throw new Error("no output file");
+    j.file = path.join(j.dir, f);
+    j.size = (await stat(j.file)).size;
+    const ext = path.extname(f).slice(1).toLowerCase();
+    j.mime = ext === "mp3" ? "audio/mpeg" : ext === "m4a" ? "audio/mp4" : ext === "webm" ? "video/webm" : "video/mp4";
+    j.name = `${safeName(title || NAMES[j.c.k] + " video")}${j.q === "mp3" ? "" : j.q === "best" ? "" : ` ${j.q}p`}.${ext}`;
+    j.state = "ready"; j.phase = "ready"; j.progress = 100;
+    j.expires = Date.now() + 20 * 60e3;
+  } catch (e) {
+    if (j.state === "working") { j.state = "error"; j.error = e.code || why(e.stderr); }
+    rm(j.dir, {recursive: true, force: true}).catch(() => {});
+  } finally { j._done(); }
+}
+
+function parseDl(get) {
+  const c = check(get("url") || "");
+  const q = String(get("q") || ""), i = String(get("i") || "");
+  if (!c || !(q === "mp3" || q === "best" || /^\d{3,4}$/.test(q)) || (i && i !== "0" && !/^([1-9]|10)$/.test(i))) return null;
+  return {c, q, i: i && i !== "0" ? +i : 0};
+}
+const disposition = name => {
+  const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "'");
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+};
+const jobView = j => ({id: j.id, state: j.state, phase: j.phase, progress: j.progress, size: j.size, name: j.name, mime: j.mime, error: j.error,
+  position: j.state === "queued" ? queue.indexOf(j) + 1 : 0});
+
+async function sendFile(req, res, j) {
+  let size;
+  try { size = (await stat(j.file)).size; } catch { return json(res, 410, {error: "gone", code: "expired"}); }
+  const h = {"Content-Type": j.mime, "Content-Disposition": disposition(j.name), "Accept-Ranges": "bytes", "Cache-Control": "no-store"};
+  let start = 0, end = size - 1, code = 200;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || "");
+  if (m && (m[1] || m[2])) {
+    if (m[1]) { start = +m[1]; if (m[2]) end = Math.min(+m[2], size - 1); }
+    else start = Math.max(0, size - +m[2]);
+    if (start > end || start >= size) { res.writeHead(416, {"Content-Range": `bytes */${size}`}); return res.end(); }
+    code = 206; h["Content-Range"] = `bytes ${start}-${end}/${size}`;
+  }
+  h["Content-Length"] = end - start + 1;
+  res.writeHead(code, h);
+  if (req.method === "HEAD") return res.end();
+  j.readers++; j.expires = Math.max(j.expires, Date.now() + 15 * 60e3);
+  const s = createReadStream(j.file, {start, end});
+  const fin = () => { j.readers = Math.max(0, j.readers - 1); };
+  s.on("close", fin); res.on("close", () => s.destroy());
+  s.pipe(res);
+}
+
+// API for the app:  POST /api/jobs {url,q,i} -> {id};  GET /api/jobs/:id -> status;  GET /api/jobs/:id/file;  DELETE /api/jobs/:id
+async function createJob(req, res) {
+  let b; try { b = await readBody(req); } catch (e) { return json(res, e.status || 400, {error: "bad request"}); }
+  const p = parseDl(k => b[k] == null ? "" : b[k]);
+  if (!p) return json(res, 400, {error: "bad request"});
+  if (queue.length >= MAX_QUEUE) return json(res, 503, {error: "busy", code: "busy"});
+  p.c.href = await resolve(p.c.href, p.c.k);
+  const j = newJob(p.c, p.q, p.i);
+  json(res, 202, jobView(j));
+}
+
+// Website: one link per quality. Same job pipeline; headers go out right away so the browser shows the download
+// and the connection stays alive while the server merges video + audio.
+async function download(req, res, params) {
+  const p = parseDl(k => params.get(k));
+  if (!p) return json(res, 400, {error: "bad request"});
+  if (queue.length >= MAX_QUEUE) return json(res, 503, {error: "busy", code: "busy"});
+  p.c.href = await resolve(p.c.href, p.c.k);
+  const j = newJob(p.c, p.q, p.i), mp3 = p.q === "mp3";
+  const entry = cacheGet(p.c.href);
+  const t = entry ? (entry.kind === "vynex" ? entry.data.title : entry.info.title) : "";
+  res.writeHead(200, {"Content-Type": mp3 ? "audio/mpeg" : "video/mp4", "Cache-Control": "no-store",
+    "Content-Disposition": disposition(`${safeName(t || "moon-" + p.c.k)}${mp3 ? ".mp3" : ".mp4"}`)});
+  let gone = false; res.on("close", () => { gone = true; if (j.state !== "ready") cancelJob(j); });
+  await j.done;
+  if (gone || j.state !== "ready") { res.destroy(); return; }
+  j.readers++;
+  const s = createReadStream(j.file);
+  s.on("close", () => { j.readers--; j.expires = Date.now() + 60e3; });
+  res.on("close", () => s.destroy());
+  s.pipe(res);
+}
+
+async function thumb(res, params) {
+  let u; try { u = new URL(params.get("u") || ""); } catch { return json(res, 400, {error: "bad request"}); }
+  if (u.protocol !== "https:" || !THUMB_HOSTS.test(u.hostname)) return json(res, 400, {error: "bad request"});
+  try {
+    const r = await fetch(u.href, {headers: {"User-Agent": UA, Referer: "https://www.instagram.com/"}, signal: AbortSignal.timeout(10000)});
+    const ct = r.headers.get("content-type") || "";
+    if (!r.ok || !/^image\//.test(ct)) return json(res, 404, {error: "not found"});
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 5e6) return json(res, 413, {error: "too large"});
+    res.writeHead(200, {"Content-Type": ct, "Content-Length": buf.length, "Cache-Control": "public, max-age=3600"});
+    res.end(buf);
+  } catch { json(res, 404, {error: "not found"}); }
 }
 
 // Diagnostics: shows the REAL reason a link fails. Enabled only when DIAG_KEY env var is set.
 // Open: /api/diag?key=YOUR_KEY&url=<video link>
 const DIAG_KEY = process.env.DIAG_KEY || "";
-const sh = (cmd, args, ms = 8000) => new Promise(r =>
-  execFile(cmd, args, {timeout: ms, maxBuffer: 5e6}, (e, o, er) => r(((o || "") + (er || "")) || String(e || ""))));
 async function diag(res, params) {
   if (!DIAG_KEY || params.get("key") !== DIAG_KEY) return json(res, 403, {error: "forbidden"});
   const out = {
-    ytdlp: (await sh(YTDLP, ["--version"])).trim(), node: (await sh("node", ["--version"])).trim(),
+    ytdlp: (await sh(YTDLP, ["--version"])).trim(), ytdlpPath: YTDLP, node: (await sh("node", ["--version"])).trim(),
     ffmpeg: (await sh("ffmpeg", ["-version"])).split("\n")[0],
-    cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT
+    impersonate: (await sh(YTDLP, ["--list-impersonate-targets"], 20000)).split("\n").filter(l => /chrome|safari/i.test(l)).slice(0, 4),
+    cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT, ytMode: YT_MODE, ytBlocked: Date.now() < ytBlockedUntil,
+    jobs: {running, queued: queue.length, total: jobs.size}
   };
   const c = check(params.get("url") || "");
   if (c) {
+    c.href = await resolve(c.href, c.k);
     let t = await sh(YTDLP, ["-v", "-s", "--no-playlist", ...base(c.k), c.href], 60000);
     if (PROXY) t = t.split(PROXY).join("***");
+    out.resolved = c.href;
     out.test = t.slice(-3500);
   }
   json(res, 200, out);
 }
 
+const CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS", "Access-Control-Allow-Headers": "Content-Type,Range",
+  "Access-Control-Expose-Headers": "Content-Length,Content-Disposition,Content-Range"};
+
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+  const pth = u.pathname;
   try {
-    if (u.pathname === "/api/diag") return diag(res, u.searchParams);
-    if (u.pathname === "/api/health") return json(res, 200, {ok: true});
-    if (u.pathname === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests"}) : extract(req, res);
-    if (u.pathname === "/api/download" && req.method === "GET") return limited(ip) ? json(res, 429, {error: "too many requests"}) : download(req, res, u.searchParams);
-    if (u.pathname === "/" || u.pathname === "/index.html") {
+    if (pth.startsWith("/api/")) {
+      for (const [k, v] of Object.entries(CORS)) res.setHeader(k, v);
+      if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
+    }
+    if (pth === "/api/diag") return diag(res, u.searchParams);
+    if (pth === "/api/health") return json(res, 200, {ok: true});
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+      platforms: Object.keys(HOSTS)});
+    if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
+    if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
+    if (pth === "/api/download" && req.method === "GET") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : download(req, res, u.searchParams);
+    if (pth === "/api/jobs" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : createJob(req, res);
+    const jm = pth.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/file)?$/);
+    if (jm) {
+      const j = jobs.get(jm[1]);
+      if (!j) return json(res, 404, {error: "not found", code: "expired"});
+      if (req.method === "DELETE") { cancelJob(j); await dropJob(j); return json(res, 200, {ok: true}); }
+      if (!jm[2]) return json(res, 200, jobView(j));
+      if (j.state !== "ready") return json(res, 409, {error: "not ready", ...jobView(j)});
+      return sendFile(req, res, j);
+    }
+    if (pth === "/" || pth === "/index.html") {
       res.writeHead(200, {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache"});
       return res.end(await readFile(path.join(dir, "public/index.html")));
     }
     json(res, 404, {error: "not found"});
-  } catch { json(res, 500, {error: "server error"}); }
+  } catch (e) { console.error("server error:", e); json(res, 500, {error: "server error"}); }
 }).listen(PORT, () => console.log(`MOON running on :${PORT}`));
