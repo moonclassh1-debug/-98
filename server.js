@@ -898,32 +898,35 @@ async function thumb(res, params) {
 const DIAG_KEY = process.env.DIAG_KEY || "";
 async function diag(res, params) {
   if (!DIAG_KEY || params.get("key") !== DIAG_KEY) return json(res, 403, {error: "forbidden"});
+  const full = params.has("full");   // the slow yt-dlp test only on request: /api/diag?key=…&url=…&full=1
+  const [ytdlp, node, ffmpeg] = await Promise.all([sh(YTDLP, ["--version"]), sh("node", ["--version"]), sh("ffmpeg", ["-version"])]);
   const out = {
-    ytdlp: (await sh(YTDLP, ["--version"])).trim(), ytdlpPath: YTDLP, node: (await sh("node", ["--version"])).trim(),
-    ffmpeg: (await sh("ffmpeg", ["-version"])).split("\n")[0],
-    impersonate: (await sh(YTDLP, ["--list-impersonate-targets"], 20000)).split("\n").filter(l => /chrome|safari/i.test(l)).slice(0, 4),
+    ytdlp: ytdlp.trim(), ytdlpPath: YTDLP, node: node.trim(), ffmpeg: ffmpeg.split("\n")[0],
     ytk: YTK_ON ? "on" : "off (set YTK_BASE and YTK_KEY)", cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT, ytMode: YT_MODE, ytBlocked: Date.now() < ytBlockedUntil,
     jobs: {running, queued: queue.length, total: jobs.size}
   };
+  if (full) out.impersonate = (await sh(YTDLP, ["--list-impersonate-targets"], 20000)).split("\n").filter(l => /chrome|safari/i.test(l)).slice(0, 4);
   const c = check(params.get("url") || "");
   if (c) {
-    c.href = await resolve(c.href, c.k);
-    let t = await sh(YTDLP, ["-v", "-s", "--no-playlist", ...base(c.k), c.href], 60000);
-    if (PROXY) t = t.split(PROXY).join("***");
+    out.input = c.href;
+    c.href = await Promise.race([resolve(c.href, c.k), new Promise(r => setTimeout(() => r(c.href), 15000))]);
     out.resolved = c.href;
     if (c.k === "facebook") {   // what Facebook really answers this server (status, login wall?, video found?)
-      out.fbTest = [];
-      for (const [name, u, ua] of [["crawler", c.href, CRAWLER_UA], ["browser", c.href, UA], ["plugin", `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(c.href)}&show_text=false`, UA]]) {
-        try {
-          const r = await fetch(u, {headers: {"User-Agent": ua, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, redirect: "follow", signal: AbortSignal.timeout(12000)});
+      const probe = ([name, u, ua]) => fetch(u, {headers: {"User-Agent": ua, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, redirect: "follow", signal: AbortSignal.timeout(9000)})
+        .then(async r => {
           const html = (await r.text()).slice(0, 2e6);
-          out.fbTest.push({name, status: r.status, finalUrl: r.url.slice(0, 160), bytes: html.length, title: (html.match(/<title[^>]*>([^<]{0,80})/i) || [])[1] || "",
-            loginWall: /log in to facebook|login_form|\/login\/\?/i.test(html), ogVideo: !!fbMeta(html, "og:video") || !!fbMeta(html, "og:video:secure_url"), parsed: !!fbParse(html)});
-        } catch (e) { out.fbTest.push({name, error: String(e.message || e).slice(0, 120)}); }
-      }
+          return {name, status: r.status, finalUrl: r.url.slice(0, 160), bytes: html.length, title: (html.match(/<title[^>]*>([^<]{0,80})/i) || [])[1] || "",
+            loginWall: /log in to facebook|login_form|\/login\/\?/i.test(html), ogVideo: !!fbMeta(html, "og:video") || !!fbMeta(html, "og:video:secure_url"), parsed: !!fbParse(html)};
+        }, e => ({name, error: String(e.message || e).slice(0, 120)}));
+      out.fbTest = await Promise.all([["crawler", c.href, CRAWLER_UA], ["browser", c.href, UA],
+        ["plugin", `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(c.href)}&show_text=false`, UA]].map(probe));
     }
     if (YTK_ON && c.k === "youtube") out.ytkTest = await ytkInfo(c.href).then(d => ({ok: true, heights: d.qualities.map(x => x.height), labels: d.qualities.map(x => x.label)}), e => ({ok: false, error: errLine(e.stderr) || e.message}));
-    out.test = t.slice(-3500);
+    if (full || c.k !== "facebook") {
+      let t = await sh(YTDLP, ["-v", "-s", "--no-playlist", ...base(c.k), c.href], 60000);
+      if (PROXY) t = t.split(PROXY).join("***");
+      out.test = t.slice(-3500);
+    } else out.test = "skipped (add &full=1 for the yt-dlp test)";
   }
   json(res, 200, out);
 }
@@ -945,7 +948,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-4", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-5", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
