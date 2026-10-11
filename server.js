@@ -324,7 +324,7 @@ async function ytdlpInfo(c) {
 // are separate, so the server merges them with ffmpeg: the user always gets one MP4 WITH sound.
 let ytBlockedUntil = 0;
 async function vynexInfo(href) {
-  const r = await fetch(`${VYNEX}?url=${encodeURIComponent(href)}`, {headers: {Accept: "application/json", "User-Agent": UA}, signal: AbortSignal.timeout(40000)});
+  const r = await fetch(`${VYNEX}?url=${encodeURIComponent(href)}`, {headers: {Accept: "application/json", "User-Agent": UA, Origin: "https://vynex.ai", Referer: "https://vynex.ai/"}, signal: AbortSignal.timeout(40000)});
   let d = null; try { d = await r.json(); } catch {}
   if (!r.ok || !d || !d.id) { const e = new Error("vynex failed"); e.stderr = (d && (d.error || d.message)) || ("HTTP " + r.status); throw e; }
   return d;
