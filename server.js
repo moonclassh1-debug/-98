@@ -69,7 +69,9 @@ const base = (k, o = {}) => [
   ...(k === "tiktok" ? ["--impersonate", "chrome"] : []),
   ...(hasCookies && !o.noCookies && (cookiesForAll || k === "instagram") ? ["--cookies", COOKIES] : []),
   ...(PROXY ? ["--proxy", PROXY] : []),
-  ...(k === "youtube" && JS_RT && JS_RT !== "off" ? ["--js-runtimes", JS_RT] : [])
+  ...(k === "youtube" && JS_RT && JS_RT !== "off" ? ["--js-runtimes", JS_RT] : []),
+  // optional: force YouTube clients, e.g. YT_CLIENTS=tv_samsung,default (names newer than the installed yt-dlp are skipped with a warning)
+  ...(k === "youtube" && /^[\w,.-]+$/.test(process.env.YT_CLIENTS || "") ? ["--extractor-args", `youtube:player_client=${process.env.YT_CLIENTS}`] : [])
 ];
 
 // ---------------------------------------------------------------- yt-dlp auto-update
@@ -268,7 +270,7 @@ const json = (res, code, obj) => {
 // why did yt-dlp fail? the page/app shows a different message for each
 function why(err = "") {
   if (/no video|not a video|does not contain a video|There is no video/i.test(err)) return "novideo";
-  if (/login|log in|logged[- ]in|sign in|cookies|rate-limit|not granting access|empty media|private|not a bot|confirm your age|restricted|checkpoint|authenticat/i.test(err)) {
+  if (/login|log in|logged[- ]in|sign in|cookies|rate-limit|not granting access|empty media|private|not a bot|confirm your age|restricted|checkpoint|authenticat|Cannot parse data/i.test(err)) {
     console.error("HINT: platform wants a login. Set YTDLP_COOKIES (and update yt-dlp).");
     return "login";
   }
@@ -339,6 +341,86 @@ async function vynexInfo(href) {
   if (!r.ok || !d || !d.id) { const e = new Error("vynex failed"); e.stderr = (d && (d.error || d.message)) || ("HTTP " + r.status); throw e; }
   return d;
 }
+// ---- pytubefix: a second YouTube extractor (own clients, makes its own PO token with node). Installed in the background at boot
+// (pip --target), so no Dockerfile change is needed. Gives separate video (up to 4K) + audio streams that ffmpeg merges below.
+const PYLIB = path.join(TMP, "pylib"), PF_PY = path.join(TMP, "ytpf.py");
+const PF_CLIENTS = process.env.PYTUBEFIX_CLIENTS || "WEB,TV,ANDROID_VR";
+let pfReady = false, pfVersion = "";
+const PF_SRC = String.raw`import sys, json
+sys.path.insert(0, sys.argv[2])
+from pytubefix import YouTube
+UAS = {
+ "WEB": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+ "ANDROID_VR": "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
+ "ANDROID": "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip",
+ "IOS": "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
+}
+proxy = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else ""
+best, errs = None, []
+for cl in sys.argv[3].split(","):
+    try:
+        kw = {"client": cl}
+        if proxy: kw["proxies"] = {"http": proxy, "https": proxy}
+        yt = YouTube(sys.argv[1], **kw)
+        vids, auds = [], []
+        for st in yt.streams:
+            try:
+                u = st.url
+                if not u: continue
+                res = getattr(st, "resolution", None) or ""
+                try: size = int(st.filesize_approx or 0)
+                except Exception: size = 0
+                if st.includes_video_track:
+                    h = int("".join(ch for ch in res if ch.isdigit()) or 0)
+                    if h: vids.append({"height": h, "url": u, "size": size, "codec": (st.video_codec or ""), "fps": getattr(st, "fps", 0) or 0, "hasAudio": bool(st.includes_audio_track)})
+                elif st.includes_audio_track:
+                    auds.append({"url": u, "abr": int("".join(ch for ch in (getattr(st, "abr", "") or "") if ch.isdigit()) or 0), "size": size, "codec": (st.audio_codec or "")})
+            except Exception:
+                pass
+        top = max([v["height"] for v in vids] or [0])
+        info = {"ok": True, "client": cl, "ua": UAS.get(cl, UAS["WEB"]), "title": yt.title, "channel": yt.author, "duration": yt.length,
+                "thumbnail": yt.thumbnail_url, "videos": vids, "audios": auds, "top": top}
+        if not best or top > best["top"]: best = info
+        if top >= 1080: break
+    except Exception as e:
+        errs.append(cl + ": " + str(e)[:160])
+print(json.dumps(best if best else {"ok": False, "errors": errs}))
+`;
+async function setupPytubefix() {
+  if (process.env.PYTUBEFIX === "off") return;
+  const probe = () => sh("python3", ["-c", `import sys; sys.path.insert(0, ${JSON.stringify(PYLIB)}); import pytubefix; print('ok')`], 60000);
+  try {
+    let v = (await probe()).trim();
+    if (!v.startsWith("ok")) {
+      console.log("installing pytubefix…");
+      await sh("python3", ["-m", "pip", "install", "-q", "--break-system-packages", "--target", PYLIB, "-U", "pytubefix"], 300000);
+      v = (await probe()).trim();
+    }
+    if (!v.startsWith("ok")) { console.error("pytubefix not available:", v.slice(-200)); return; }
+    await writeFile(PF_PY, PF_SRC);
+    pfVersion = (await sh("python3", ["-c", `import sys; sys.path.insert(0, ${JSON.stringify(PYLIB)}); import importlib.metadata as m; print(m.version('pytubefix'))`], 30000)).trim().slice(0, 20);
+    pfReady = true; console.log("pytubefix ready", pfVersion);
+  } catch (e) { console.error("pytubefix setup failed:", e.message); }
+}
+setupPytubefix();
+function ytpfInfo(href) {
+  return new Promise((resolve, reject) => {
+    if (!pfReady) return reject(Object.assign(new Error("pytubefix off"), {stderr: "pytubefix not ready"}));
+    execFile("python3", [PF_PY, href, PYLIB, PF_CLIENTS, PROXY], {timeout: 70000, maxBuffer: 20e6}, (e, out, err) => {
+      let d = null; try { d = JSON.parse(String(out || "").trim().split("\n").pop()); } catch {}
+      if (!d || !d.ok || !(d.videos || []).length) {
+        const x = new Error("pytubefix failed"); x.stderr = (d && (d.errors || []).join(" | ")) || String(err || e || "").slice(-300) || "no streams"; return reject(x);
+      }
+      resolve(d);
+    });
+  });
+}
+// best height an info entry really offers
+const entryMax = r => !r ? 0 : r.kind === "ytk" ? Math.max(0, ...r.data.qualities.map(x => x.height))
+  : r.kind === "vynex" ? Math.max(0, ...(r.data.formats || []).map(f => +f.height || 0))
+  : r.kind === "ytpf" ? Math.max(0, ...r.data.videos.map(v => v.height))
+  : Math.max(0, ...videosOf(r.info).flatMap(v => heightsOf(v.e)));
+
 // ---- owner's service (key-based app API). Same flow as its website: fetch-video → generate-download → progress → file
 async function ytkCall(method, p, body, ms = 40000) {
   const r = await fetch(YTK_BASE + YTK_PREFIX + p, {
@@ -409,6 +491,18 @@ function preferFirst(a, b, grace) {
 }
 
 async function ytInfo(c) {
+  let first = null, firstErr = null;
+  try { first = await ytInfoBase(c); } catch (e) { firstErr = e; }
+  if (pfReady && entryMax(first) < 1080 && YT_MODE !== "ytdlp") {
+    try {
+      const d = await ytpfInfo(c.href);
+      if (Math.max(...d.videos.map(v => v.height)) > entryMax(first)) return {kind: "ytpf", data: d};
+    } catch (e) { console.error("pytubefix:", String(e.stderr || e.message).slice(0, 200)); }
+  }
+  if (first) return first;
+  throw firstErr;
+}
+async function ytInfoBase(c) {
   if (YTK_ON && YT_MODE !== "ytdlp") {
     try { return {kind: "ytk", data: await ytkInfo(c.href)}; } catch (e) { console.error("ytk:", errLine(e.stderr) || e.message); }
   }
@@ -567,6 +661,14 @@ function buildFormats(c, entry) {
     label, note, q: String(q), i: i || 0, kind, height: height || 0, size: Math.round(size || 0),
     url: `/api/download?url=${enc}&q=${q}${i ? `&i=${i}` : ""}`
   });
+  if (entry.kind === "ytpf") {
+    const d = entry.data, hs = [...new Set(d.videos.map(v => v.height))].sort((a, b) => b - a).filter(h => h >= 240).slice(0, 6);
+    const au = d.audios.slice().sort((a, b) => b.abr - a.abr)[0];
+    const sz = h => { const v = d.videos.filter(x => x.height === h).sort((a, b) => b.size - a.size)[0]; return v && v.size ? v.size + (v.hasAudio ? 0 : (au && au.size) || 0) : 0; };
+    hs.forEach((h, n) => add(h, 0, `MP4 ${h}p`, n === 0 && h >= 720 ? (h >= 2160 ? "4K" : h >= 1440 ? "2K" : "HD") : "", "video", h, sz(h)));
+    add("mp3", 0, "MP3", "მხოლოდ ხმა", "audio", 0, d.duration ? d.duration * 24000 : 0);
+    return {title: d.title, thumbnail: d.thumbnail, seconds: Math.round(+d.duration || 0), uploader: d.channel, formats};
+  }
   if (entry.kind === "ytk") {
     const d = entry.data, q = [...new Set(d.qualities.map(x => x.height))].sort((a, b) => b - a).slice(0, 6);
     q.forEach((h, n) => add(h, 0, `MP4 ${h}p`, n === 0 && h >= 720 ? "HD" : "", "video", h, 0));
@@ -626,12 +728,14 @@ async function extract(req, res) {
       thumbnail: th || "", duration: fmtDur(out.seconds), seconds: out.seconds, formats: out.formats,
       // what the source really offered (helps to tell "video has no 4K" from "YouTube hid it from this server")
       source: entry.kind,
-      maxHeight: entry.kind === "ytk" ? Math.max(0, ...entry.data.qualities.map(x => x.height)) : entry.kind === "vynex" ? Math.max(0, ...(entry.data.formats || []).map(f => +f.height || 0))
-        : Math.max(0, ...videosOf(entry.info).flatMap(v => heightsOf(v.e)))
+      maxHeight: entryMax(entry)
     });
   } catch (err) {
     cache.delete(c.href);
-    json(res, 422, {error: "video not found or not public", code: err.code || why(err.stderr), detail: errLine(err.stderr)});
+    {
+    const code = err.code || why(err.stderr);
+    json(res, 422, {error: "video not found or not public", code, detail: code === "login" ? "" : errLine(err.stderr)});
+  }
   }
 }
 
@@ -750,7 +854,26 @@ async function vynexJob(j, d) {
   return ffmpegJob(j, {vurls, aurls, hasAudio: !!(v && (v.has_audio || !aurls.length)), dur: +d.duration || 0, noVideo: !v, aacAudio: !!(au && isAac(au))});
 }
 
-async function ffmpegJob(j, {vurls, aurls, hasAudio, dur, headers, noVideo, aacAudio}) {
+async function ytpfJob(j, d) {
+  const want = j.q === "best" || j.q === "mp3" ? 1e5 : +j.q;
+  const au = d.audios.slice().sort((a, b) => (/mp4a|aac/i.test(b.codec) ? 1 : 0) - (/mp4a|aac/i.test(a.codec) ? 1 : 0) || b.abr - a.abr)[0];
+  let vurls = [], hasAudio = false;
+  if (j.q !== "mp3") {
+    const ok = d.videos.filter(v => v.height <= want * 1.04), top = Math.max(0, ...ok.map(v => v.height));
+    const same = (ok.length ? ok.filter(v => v.height === top) : d.videos.slice().sort((a, b) => a.height - b.height).slice(0, 1));
+    // MP4-friendly codec first: h264 up to 1080p, VP9 above (YouTube has no h264 there), AV1 last
+    const rank = v => /avc1|h264/i.test(v.codec) ? 0 : /vp9|vp09/i.test(v.codec) ? 1 : 2;
+    const adaptive = same.filter(v => !v.hasAudio).sort((a, b) => rank(a) - rank(b) || b.size - a.size);
+    const pick = au && adaptive.length ? adaptive[0] : same.filter(v => v.hasAudio)[0] || same[0];
+    if (!pick) throw Object.assign(new Error("no video"), {stderr: "no video"});
+    vurls = [pick.url]; hasAudio = pick.hasAudio || !au;
+    j.total = (pick.size || 0) + (pick.hasAudio ? 0 : (au && au.size) || 0);
+  }
+  const base = {vurls, aurls: au ? [au.url] : [], hasAudio, dur: +d.duration || 0, noVideo: j.q === "mp3", aacAudio: !!(au && /mp4a|aac/i.test(au.codec))};
+  try { await ffmpegJob(j, {...base, ua: d.ua}); }
+  catch (e) { if (j.state !== "working") throw e; await ffmpegJob(j, {...base, ua: UA}); }   // the link may only accept the client's own user agent — or only a browser's
+}
+async function ffmpegJob(j, {vurls, aurls, hasAudio, dur, headers, noVideo, aacAudio, ua}) {
   const mp3 = j.q === "mp3";
   const onLine = line => {
     const m = line.match(/^out_time_(?:us|ms)=(\d+)/);
@@ -758,7 +881,7 @@ async function ffmpegJob(j, {vurls, aurls, hasAudio, dur, headers, noVideo, aacA
     const sz = line.match(/^total_size=(\d+)/);
     if (sz) { j.bytes = +sz[1]; if (j.total && j.bytes > j.total) j.total = j.bytes; }
   };
-  const inp = u => ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5", "-user_agent", UA, ...(headers ? ["-headers", headers] : []), "-i", u];
+  const inp = u => ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5", "-user_agent", ua || UA, ...(headers ? ["-headers", headers] : []), "-i", u];
   const head = ["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y"];
   await mkdir(j.dir, {recursive: true});
   const tries = [];
@@ -792,8 +915,18 @@ async function runJob(j) {
     await mkdir(j.dir, {recursive: true});
     let entry = cacheGet(j.c.href);
     if (j.c.k === "youtube" && !entry) entry = await infoFor(j.c).catch(() => null);
-    const title = entry ? (entry.kind === "vynex" || entry.kind === "ytk" ? entry.data.title : (entry.info.entries?.[(j.i || 1) - 1]?.title || entry.info.title)) : "";
-    if (entry && entry.kind === "ytk") {
+    const title = entry ? (entry.kind === "vynex" || entry.kind === "ytk" || entry.kind === "ytpf" ? entry.data.title : (entry.info.entries?.[(j.i || 1) - 1]?.title || entry.info.title)) : "";
+    if (entry && entry.kind === "ytpf") {
+      try { await ytpfJob(j, entry.data); }
+      catch (e) {
+        if (j.state !== "working") throw e;
+        console.error("ytpf job:", errLine(e.stderr) || e.message);
+        await rm(j.dir, {recursive: true, force: true}).catch(() => {}); await mkdir(j.dir, {recursive: true});
+        try { const d = await vynexInfo(j.c.href); await cachePut(j.c.href, {kind: "vynex", data: d}); await vynexJob(j, d); }
+        catch (e2) { if (j.state !== "working") throw e2; await ytdlpJob(j, null); }
+      }
+    }
+    else if (entry && entry.kind === "ytk") {
       const others = async () => {   // MP3, or the owner's service failed: the usual sources take over
         try { const d = await vynexInfo(j.c.href); await cachePut(j.c.href, {kind: "vynex", data: d}); await vynexJob(j, d); }
         catch (e) { if (j.state !== "working") throw e; await ytdlpJob(j, null); }
@@ -888,7 +1021,7 @@ async function download(req, res, params) {
   p.c.href = await resolve(p.c.href, p.c.k);
   const j = newJob(p.c, p.q, p.i), mp3 = p.q === "mp3";
   const entry = cacheGet(p.c.href);
-  const t = entry ? (entry.kind === "vynex" || entry.kind === "ytk" ? entry.data.title : entry.info.title) : "";
+  const t = entry ? (entry.kind === "vynex" || entry.kind === "ytk" || entry.kind === "ytpf" ? entry.data.title : entry.info.title) : "";
   res.writeHead(200, {"Content-Type": mp3 ? "audio/mpeg" : "video/mp4", "Cache-Control": "no-store",
     "Content-Disposition": disposition(`${safeName(t || "moon-" + p.c.k)}${mp3 ? ".mp3" : ".mp4"}`)});
   let gone = false; res.on("close", () => { gone = true; if (j.state !== "ready") cancelJob(j); });
@@ -924,7 +1057,7 @@ async function diag(res, params) {
   const [ytdlp, node, ffmpeg] = await Promise.all([sh(YTDLP, ["--version"], 30000), sh("node", ["--version"]), sh("ffmpeg", ["-version"])]);
   const out = {
     ytdlp: ytdlp.trim().slice(0, 120), ytdlpPath: YTDLP, node: node.trim(), ffmpeg: ffmpeg.split("\n")[0],
-    ytk: YTK_ON ? "on" : "off (set YTK_BASE and YTK_KEY)", cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT, ytMode: YT_MODE, ytBlocked: Date.now() < ytBlockedUntil,
+    ytk: YTK_ON ? "on" : "off (set YTK_BASE and YTK_KEY)", cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT, ytMode: YT_MODE, ytClients: process.env.YT_CLIENTS || "(yt-dlp default)", pytubefix: pfReady ? "ready " + pfVersion : "not ready", ytBlocked: Date.now() < ytBlockedUntil,
     jobs: {running, queued: queue.length, total: jobs.size}
   };
   if (full) out.impersonate = (await sh(YTDLP, ["--list-impersonate-targets"], 20000)).split("\n").filter(l => /chrome|safari/i.test(l)).slice(0, 4);
@@ -946,6 +1079,7 @@ async function diag(res, params) {
       out.fbIds = fbIds(c.href); out.fbPage = fbPageId(c.href);
       out.fbTest = await Promise.all(fbCandidates(c.href).slice(0, 8).map(([u, ua], n) => probe([`#${n} ${u.replace("https://www.facebook.com", "").slice(0, 70)}`, u, ua])));
     }
+    if (pfReady && c.k === "youtube") out.pfTest = await ytpfInfo(c.href).then(d => ({ok: true, client: d.client, top: d.top, heights: [...new Set(d.videos.map(v => v.height))].sort((a, b) => b - a), audio: d.audios.length}), e => ({ok: false, error: String(e.stderr || e.message).slice(0, 400)}));
     if (YTK_ON && c.k === "youtube") out.ytkTest = await ytkInfo(c.href).then(d => ({ok: true, heights: d.qualities.map(x => x.height), labels: d.qualities.map(x => x.label)}), e => ({ok: false, error: errLine(e.stderr) || e.message}));
     if (full || c.k !== "facebook") {
       let t = await sh(YTDLP, ["-v", "-s", "--no-playlist", ...base(c.k), c.href], 60000);
@@ -973,7 +1107,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-7", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-10", ytk: YTK_ON, pytubefix: pfReady ? pfVersion : false, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
