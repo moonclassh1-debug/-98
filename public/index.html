@@ -8,7 +8,6 @@
 <title>MOON — ვიდეოს გადმოწერა TikTok, Instagram, Facebook, YouTube, X</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://vynex.ai" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 @property --c1{syntax:"<color>";inherits:true;initial-value:#BDF7F4}
@@ -180,7 +179,7 @@ footer{border-top-color:rgba(255,255,255,.14)}footer small{color:rgba(255,255,25
   <div class="faq">
     <details><summary>უფასოა გადმოწერა?</summary><p>დიახ, სერვისი უფასოა და რეგისტრაცია არ არის საჭირო.</p></details>
     <details><summary>რატომ არ ჩანს 1080p?</summary><p>ხარისხი იმდენია, რამდენადაც ორიგინალი ვიდეო არის ატვირთული. თუ ვიდეო 720p-შია, 1080p ვარიანტი არ გამოჩნდება.</p></details>
-    <details><summary>YouTube-ის HD ვიდეოს რატომ არ აქვს ხმა?</summary><p>YouTube HD ვიდეოსა და ხმას ცალ-ცალკე ინახავს. ხმისთვის ჩამოტვირთე „აუდიოც“ და გააერთიანე ორივე ფაილი.</p></details>
+    <details><summary>YouTube-ის HD ვიდეოს ხმა ექნება?</summary><p>დიახ. YouTube HD ვიდეოსა და ხმას ცალ-ცალკე ინახავს, ჩვენი სერვერი კი მათ ავტომატურად აერთიანებს ერთ MP4 ფაილში. თუ მხოლოდ ხმა გჭირდება, აირჩიე „აუდიო“ (MP3).</p></details>
     <details><summary>როგორ გადმოვწერო iPhone-ზე?</summary><p>გახსენი საიტი Safari-ში, ხანგრძლივად დააჭირე ფილას და აირჩიე „Download Linked File“. ფაილი გამოჩნდება აპლიკაცია Files → Downloads-ში.</p></details>
     <details><summary>რატომ არ იწერება Instagram-ის ან Facebook-ის ზოგი ვიდეო?</summary><p>დახურული ანგარიშის ან ავტორიზაციის მომთხოვნი პოსტი ვერ ჩამოიტვირთება. ბმული უნდა იყოს საჯარო.</p></details>
     <details><summary>კანონიერია გადმოწერა?</summary><p>გადმოწერეთ მხოლოდ საკუთარი ან გამოყენების უფლების მქონე კონტენტი. პასუხისმგებლობა გადმოწერილი მასალის გამოყენებაზე თქვენზეა.</p></details>
@@ -290,16 +289,16 @@ function ownFlow(v){
   });
 }
 
-var errs={login:"ეს ვიდეო დახურულია ან პლატფორმა ავტორიზაციას ითხოვს. დახურული პოსტი ვერ ჩამოიტვირთება.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
+var errs={ratelimit:"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.",unsupported:"ეს ბმული არ არის მხარდაჭერილი.",login:"ეს ვიდეო დახურულია ან პლატფორმა ავტორიზაციას ითხოვს. დახურული პოსტი ვერ ჩამოიტვირთება.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
 f.addEventListener("submit",function(e){
   e.preventDefault();r.classList.remove("on");f.classList.remove("err");
   var v=u.value.trim(),ok=false;
   try{ok=/^https?:$/.test(new URL(v).protocol)}catch(_){}
   if(!ok){f.classList.add("err");msg("შეიყვანე სწორი ბმული (https://...)","bad");u.focus();return}
   g.disabled=true;g.classList.add("ld");msg("მუშავდება…");
-  (isYT(v)?ytFlow(v):ownFlow(v))
+  ownFlow(v).catch(function(er){if(isYT(v))return ytFlow(v);throw er})
   .catch(function(er){
-    msg(er&&er.code&&errs[er.code]||(er&&er.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":er&&er.error&&isYT(v)?er.error:"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad");
+    msg(er&&er.code&&errs[er.code]||(er&&er.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad");
   })
   .then(function(){g.disabled=false;g.classList.remove("ld")});
 });
