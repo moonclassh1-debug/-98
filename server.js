@@ -18,7 +18,9 @@ const MAX_JOBS = Number(process.env.MAX_JOBS || 3);     // parallel downloads/me
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 30);
 const MAX_YT_SEC = Number(process.env.MAX_YT_MIN || 60) * 60;
 const AUTO_UPDATE = process.env.YTDLP_AUTO_UPDATE !== "0"; // keep yt-dlp fresh without rebuilding the container
-const VYNEX = (process.env.VYNEX_BASE ?? "https://vynex.ai/api/tools/youtube-video").replace(/\/$/, ""); // "off" disables
+// vynex is switched OFF for now (we test yt-dlp + pytubefix on their own). To turn it back on, set the env var
+// VYNEX_BASE=https://vynex.ai/api/tools/youtube-video on Render.
+const VYNEX = (process.env.VYNEX_BASE ?? "off").replace(/\/$/, ""); // "off" disables
 const YT_MODE = process.env.YT_MODE || "auto";          // auto: yt-dlp first, vynex if YouTube blocks this server | ytdlp | vynex
 // Optional extra YouTube source: the owner's own service (youtubetoolkit) through a key-based app API.
 // Off until both YTK_BASE and YTK_KEY are set. Paths: YTK_PREFIX + /fetch-video, /generate-download, /progress/:id
@@ -336,6 +338,7 @@ async function ytdlpInfo(c) {
 // are separate, so the server merges them with ffmpeg: the user always gets one MP4 WITH sound.
 let ytBlockedUntil = 0;
 async function vynexInfo(href) {
+  if (VYNEX === "off") { const e = new Error("vynex off"); e.stderr = "vynex off"; throw e; }
   const r = await fetch(`${VYNEX}?url=${encodeURIComponent(href)}`, {headers: {Accept: "application/json", "User-Agent": UA, Origin: "https://vynex.ai", Referer: "https://vynex.ai/"}, signal: AbortSignal.timeout(40000)});
   let d = null; try { d = await r.json(); } catch {}
   if (!r.ok || !d || !d.id) { const e = new Error("vynex failed"); e.stderr = (d && (d.error || d.message)) || ("HTTP " + r.status); throw e; }
@@ -743,7 +746,8 @@ async function extract(req, res) {
   } catch (err) {
     cache.delete(c.href);
     {
-    const code = err.code || why(err.stderr);
+    let code = err.code || why(err.stderr);
+    if (code === "login" && c.k === "youtube") code = "ytblock";   // public YouTube video + login-type error = YouTube is blocking this server
     json(res, 422, {error: "video not found or not public", code, detail: code === "login" ? "" : errLine(err.stderr)});
   }
   }
@@ -1117,7 +1121,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-11", ytk: YTK_ON, pytubefix: pfReady ? pfVersion : false, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-12", ytk: YTK_ON, pytubefix: pfReady ? pfVersion : false, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
