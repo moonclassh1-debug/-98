@@ -1,7 +1,9 @@
 import http from "node:http";
 import {spawn, execFile} from "node:child_process";
 import {readFile, readdir, rm, writeFile, stat, chmod, rename, mkdir} from "node:fs/promises";
-import {copyFileSync, createReadStream, readFileSync, writeFileSync} from "node:fs";
+import {copyFileSync, createReadStream, createWriteStream, readFileSync, writeFileSync} from "node:fs";
+import {Readable, Transform} from "node:stream";
+import {pipeline} from "node:stream/promises";
 import os from "node:os";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -18,6 +20,14 @@ const MAX_YT_SEC = Number(process.env.MAX_YT_MIN || 60) * 60;
 const AUTO_UPDATE = process.env.YTDLP_AUTO_UPDATE !== "0"; // keep yt-dlp fresh without rebuilding the container
 const VYNEX = (process.env.VYNEX_BASE ?? "https://vynex.ai/api/tools/youtube-video").replace(/\/$/, ""); // "off" disables
 const YT_MODE = process.env.YT_MODE || "auto";          // auto: yt-dlp first, vynex if YouTube blocks this server | ytdlp | vynex
+// Optional extra YouTube source: the owner's own service (youtubetoolkit) through a key-based app API.
+// Off until both YTK_BASE and YTK_KEY are set. Paths: YTK_PREFIX + /fetch-video, /generate-download, /progress/:id
+const YTK_BASE = (process.env.YTK_BASE || "").replace(/\/$/, "");     // e.g. https://app.youtubetoolkit.com
+const YTK_KEY = process.env.YTK_KEY || "";
+const YTK_HEADER = process.env.YTK_HEADER || "X-API-Key";
+const YTK_PREFIX = process.env.YTK_PREFIX ?? "/api/app";
+const YTK_ON = !!(YTK_BASE && YTK_KEY);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const TMP = path.join(os.tmpdir(), "moon");
 await mkdir(TMP, {recursive: true});
@@ -329,6 +339,60 @@ async function vynexInfo(href) {
   if (!r.ok || !d || !d.id) { const e = new Error("vynex failed"); e.stderr = (d && (d.error || d.message)) || ("HTTP " + r.status); throw e; }
   return d;
 }
+// ---- owner's service (key-based app API). Same flow as its website: fetch-video → generate-download → progress → file
+async function ytkCall(method, p, body, ms = 40000) {
+  const r = await fetch(YTK_BASE + YTK_PREFIX + p, {
+    method, headers: {Accept: "application/json", "Content-Type": "application/json", "User-Agent": UA, [YTK_HEADER]: YTK_KEY},
+    body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(ms)
+  });
+  let d = null; try { d = await r.json(); } catch {}
+  if (!r.ok || !d) { const e = new Error("ytk failed"); e.stderr = (d && (d.message || d.error)) || ("HTTP " + r.status); e.status = r.status; throw e; }
+  return d;
+}
+const qHeight = q => {
+  const t = `${q.label || ""} ${q.value || ""}`;
+  if (/\b4k\b|2160/i.test(t)) return 2160;
+  if (/\b2k\b|1440/i.test(t)) return 1440;
+  const m = t.match(/(\d{3,4})\s*p?/); return m ? +m[1] : 0;
+};
+const durSec = v => {
+  if (typeof v === "number") return v;
+  const p = String(v || "").split(":").map(Number);
+  return p.length > 1 && p.every(n => !isNaN(n)) ? p.reduce((a, n) => a * 60 + n, 0) : (+v || 0);
+};
+async function ytkInfo(href) {
+  const d = await ytkCall("POST", "/fetch-video", {url: href, mode: "video"});
+  const v = d.video || {};
+  const qualities = (d.qualities || []).map(q => ({...q, height: qHeight(q)})).filter(q => q.height);
+  if (!qualities.length) { const e = new Error("ytk no qualities"); e.stderr = "no video"; throw e; }
+  return {title: v.title || "YouTube", thumbnail: v.thumbnail || "", channel: v.channel_name || "", duration: durSec(v.duration), qualities};
+}
+async function ytkJob(j, d) {
+  const want = j.q === "best" ? 1e5 : +j.q;
+  const sorted = d.qualities.slice().sort((a, b) => b.height - a.height);
+  const q = sorted.find(x => x.height <= want * 1.04) || sorted[sorted.length - 1];
+  j.phase = "preparing";
+  let r = await ytkCall("POST", "/generate-download", {url: j.c.href, mode: "video", format: q.value, audio_quality: q.audio_quality ?? null,
+    title: d.title, thumbnail: d.thumbnail, channel_name: d.channel}, 60000);
+  let dl = r.download;
+  for (let n = 0; dl && dl.status !== "completed" && n < 40; n++) {
+    if (j.state !== "working") return;
+    if (dl.status === "failed") break;
+    await sleep(n < 3 ? 3000 : 5000);
+    r = await ytkCall("GET", "/progress/" + dl.id); dl = r.download;
+  }
+  if (!dl || dl.status !== "completed" || !dl.download_url) { const e = new Error("ytk not ready"); e.stderr = (dl && dl.error_message) || "ytk not ready"; throw e; }
+  const url = new URL(dl.download_url, YTK_BASE);
+  const ac = new AbortController(); j.kill = () => ac.abort();
+  const res = await fetch(url, {headers: {"User-Agent": UA, ...(url.origin === new URL(YTK_BASE).origin ? {[YTK_HEADER]: YTK_KEY} : {})}, signal: ac.signal});
+  if (!res.ok || !res.body) { const e = new Error("ytk file"); e.stderr = "HTTP " + res.status; throw e; }
+  const ext = /webm/i.test(res.headers.get("content-type") || "") ? "webm" : "mp4";
+  j.total = +res.headers.get("content-length") || 0; j.bytes = 0; j.phase = "downloading";
+  await mkdir(j.dir, {recursive: true});
+  const count = new Transform({transform(c, _e, cb) { j.bytes += c.length; if (j.total) j.progress = Math.min(99, Math.round(j.bytes / j.total * 100)); cb(null, c); }});
+  try { await pipeline(Readable.fromWeb(res.body), count, createWriteStream(path.join(j.dir, "media." + ext))); } finally { j.kill = null; }
+}
+
 // Search speed: ask two sources at once and take the first good answer. yt-dlp is preferred (more qualities),
 // so when the other source answers first we still give yt-dlp a short grace period.
 function preferFirst(a, b, grace) {
@@ -345,6 +409,9 @@ function preferFirst(a, b, grace) {
 }
 
 async function ytInfo(c) {
+  if (YTK_ON && YT_MODE !== "ytdlp") {
+    try { return {kind: "ytk", data: await ytkInfo(c.href)}; } catch (e) { console.error("ytk:", errLine(e.stderr) || e.message); }
+  }
   const ytp = () => ytdlpInfo(c).then(info => ({kind: "ytdlp", info}));
   const vxp = () => vynexInfo(c.href).then(data => ({kind: "vynex", data}));
   if (VYNEX === "off" || YT_MODE === "ytdlp") return ytp();
@@ -432,6 +499,12 @@ function buildFormats(c, entry) {
     label, note, q: String(q), i: i || 0, kind, height: height || 0, size: Math.round(size || 0),
     url: `/api/download?url=${enc}&q=${q}${i ? `&i=${i}` : ""}`
   });
+  if (entry.kind === "ytk") {
+    const d = entry.data, q = [...new Set(d.qualities.map(x => x.height))].sort((a, b) => b - a).slice(0, 6);
+    q.forEach((h, n) => add(h, 0, `MP4 ${h}p`, n === 0 && h >= 720 ? "HD" : "", "video", h, 0));
+    add("mp3", 0, "MP3", "მხოლოდ ხმა", "audio", 0, d.duration ? d.duration * 24000 : 0);
+    return {title: d.title, thumbnail: d.thumbnail, seconds: Math.round(d.duration || 0), uploader: d.channel, formats};
+  }
   if (entry.kind === "vynex") {
     const d = entry.data, hs = (d.formats || []).map(f => +f.height || 0).filter(Boolean);
     const max = Math.max(0, ...hs);
@@ -485,7 +558,7 @@ async function extract(req, res) {
       thumbnail: th || "", duration: fmtDur(out.seconds), seconds: out.seconds, formats: out.formats,
       // what the source really offered (helps to tell "video has no 4K" from "YouTube hid it from this server")
       source: entry.kind,
-      maxHeight: entry.kind === "vynex" ? Math.max(0, ...(entry.data.formats || []).map(f => +f.height || 0))
+      maxHeight: entry.kind === "ytk" ? Math.max(0, ...entry.data.qualities.map(x => x.height)) : entry.kind === "vynex" ? Math.max(0, ...(entry.data.formats || []).map(f => +f.height || 0))
         : Math.max(0, ...videosOf(entry.info).flatMap(v => heightsOf(v.e)))
     });
   } catch (err) {
@@ -648,8 +721,16 @@ async function runJob(j) {
     await mkdir(j.dir, {recursive: true});
     let entry = cacheGet(j.c.href);
     if (j.c.k === "youtube" && !entry) entry = await infoFor(j.c).catch(() => null);
-    const title = entry ? (entry.kind === "vynex" ? entry.data.title : (entry.info.entries?.[(j.i || 1) - 1]?.title || entry.info.title)) : "";
-    if (entry && entry.kind === "vynex") await vynexJob(j, entry.data);
+    const title = entry ? (entry.kind === "vynex" || entry.kind === "ytk" ? entry.data.title : (entry.info.entries?.[(j.i || 1) - 1]?.title || entry.info.title)) : "";
+    if (entry && entry.kind === "ytk") {
+      const others = async () => {   // MP3, or the owner's service failed: the usual sources take over
+        try { const d = await vynexInfo(j.c.href); await cachePut(j.c.href, {kind: "vynex", data: d}); await vynexJob(j, d); }
+        catch (e) { if (j.state !== "working") throw e; await ytdlpJob(j, null); }
+      };
+      if (j.q === "mp3") await others();
+      else { try { await ytkJob(j, entry.data); } catch (e) { if (j.state !== "working") throw e; console.error("ytk job:", errLine(e.stderr) || e.message); await rm(j.dir, {recursive: true, force: true}).catch(() => {}); await mkdir(j.dir, {recursive: true}); await others(); } }
+    }
+    else if (entry && entry.kind === "vynex") await vynexJob(j, entry.data);
     else if (entry && entry.kind === "direct") {
       try { await directJob(j, entry.info); }
       catch (e) { if (j.state !== "working") throw e; await ytdlpJob(j, null); }   // CDN link expired → let yt-dlp try
@@ -736,7 +817,7 @@ async function download(req, res, params) {
   p.c.href = await resolve(p.c.href, p.c.k);
   const j = newJob(p.c, p.q, p.i), mp3 = p.q === "mp3";
   const entry = cacheGet(p.c.href);
-  const t = entry ? (entry.kind === "vynex" ? entry.data.title : entry.info.title) : "";
+  const t = entry ? (entry.kind === "vynex" || entry.kind === "ytk" ? entry.data.title : entry.info.title) : "";
   res.writeHead(200, {"Content-Type": mp3 ? "audio/mpeg" : "video/mp4", "Cache-Control": "no-store",
     "Content-Disposition": disposition(`${safeName(t || "moon-" + p.c.k)}${mp3 ? ".mp3" : ".mp4"}`)});
   let gone = false; res.on("close", () => { gone = true; if (j.state !== "ready") cancelJob(j); });
@@ -772,7 +853,7 @@ async function diag(res, params) {
     ytdlp: (await sh(YTDLP, ["--version"])).trim(), ytdlpPath: YTDLP, node: (await sh("node", ["--version"])).trim(),
     ffmpeg: (await sh("ffmpeg", ["-version"])).split("\n")[0],
     impersonate: (await sh(YTDLP, ["--list-impersonate-targets"], 20000)).split("\n").filter(l => /chrome|safari/i.test(l)).slice(0, 4),
-    cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT, ytMode: YT_MODE, ytBlocked: Date.now() < ytBlockedUntil,
+    ytk: YTK_ON ? "on" : "off (set YTK_BASE and YTK_KEY)", cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT, ytMode: YT_MODE, ytBlocked: Date.now() < ytBlockedUntil,
     jobs: {running, queued: queue.length, total: jobs.size}
   };
   const c = check(params.get("url") || "");
@@ -781,6 +862,7 @@ async function diag(res, params) {
     let t = await sh(YTDLP, ["-v", "-s", "--no-playlist", ...base(c.k), c.href], 60000);
     if (PROXY) t = t.split(PROXY).join("***");
     out.resolved = c.href;
+    if (YTK_ON && c.k === "youtube") out.ytkTest = await ytkInfo(c.href).then(d => ({ok: true, heights: d.qualities.map(x => x.height), labels: d.qualities.map(x => x.label)}), e => ({ok: false, error: errLine(e.stderr) || e.message}));
     out.test = t.slice(-3500);
   }
   json(res, 200, out);
@@ -803,7 +885,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-1", features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-2", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
