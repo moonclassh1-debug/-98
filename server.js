@@ -490,14 +490,24 @@ function preferFirst(a, b, grace) {
   });
 }
 
+let pfBlockedUntil = 0;
 async function ytInfo(c) {
+  // pytubefix runs next to the main sources (not after them), so a normal video isn't slowed down;
+  // vynex/yt-dlp often stop at 1080p, so anything below 4K is worth a second look
+  const pf = pfReady && YT_MODE !== "ytdlp" && Date.now() >= pfBlockedUntil ? ytpfInfo(c.href).then(data => ({kind: "ytpf", data})) : null;
+  if (pf) pf.catch(e => {
+    const m = String(e.stderr || e.message);
+    console.error("pytubefix:", m.slice(0, 200));
+    if (/bot|po.?token|sign in|429/i.test(m)) pfBlockedUntil = Date.now() + 10 * 60e3;
+  });
   let first = null, firstErr = null;
   try { first = await ytInfoBase(c); } catch (e) { firstErr = e; }
-  if (pfReady && entryMax(first) < 1080 && YT_MODE !== "ytdlp") {
-    try {
-      const d = await ytpfInfo(c.href);
-      if (Math.max(...d.videos.map(v => v.height)) > entryMax(first)) return {kind: "ytpf", data: d};
-    } catch (e) { console.error("pytubefix:", String(e.stderr || e.message).slice(0, 200)); }
+  const have = entryMax(first);
+  if (pf && have < 2160) {
+    const better = r => r && r.kind === "ytpf" && Math.max(0, ...r.data.videos.map(v => v.height)) > have;
+    const r = await Promise.race([pf.catch(() => null), sleep(first ? 15000 : 70000).then(() => "late")]);
+    if (better(r)) return r;
+    if (r === "late") pf.then(e => { if (better(e)) cachePut(c.href, e); }).catch(() => {});   // slow answer: upgrade the cache when it arrives
   }
   if (first) return first;
   throw firstErr;
@@ -1107,7 +1117,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-10", ytk: YTK_ON, pytubefix: pfReady ? pfVersion : false, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-11", ytk: YTK_ON, pytubefix: pfReady ? pfVersion : false, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
