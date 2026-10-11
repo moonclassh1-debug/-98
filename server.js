@@ -100,24 +100,45 @@ function check(raw) {
   } catch { return null; }
 }
 
-// "Share" links from the Instagram/Facebook apps are redirects to the real post; follow them
-// ourselves, and only through allowed hosts, so yt-dlp gets the canonical post/reel URL.
+// "Share" links from the Instagram/Facebook apps (/share/reel/…, /share/p/…, /share/v/…) are redirects to the real post.
+// Follow them ourselves, only through allowed hosts. Instagram often answers a datacenter IP with a login redirect
+// whose ?next= holds the real /reel/ID path, or with an HTML page whose og:url is the real link — both are handled.
+const CRAWLER_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
 async function resolve(href, k) {
   if ((k !== "facebook" && k !== "instagram") || !/\/share\//.test(href)) return href;
-  let cur = href;
-  try {
-    for (let i = 0; i < 5; i++) {
-      const r = await fetch(cur, {redirect: "manual", headers: {"User-Agent": UA}, signal: AbortSignal.timeout(8000)});
-      const loc = r.headers.get("location");
-      if (r.status < 300 || r.status >= 400 || !loc) break;
-      const next = new URL(loc, cur);
-      const ok = check(next.href);
-      if (!ok || /^\/(login|accounts\/login)/.test(next.pathname)) break;
-      cur = ok.href;
-      if (!/\/share\//.test(cur)) break;
-    }
-  } catch {}
-  return cur;
+  const final = h => { const t = check(h); return t && !/\/share\//.test(t.href) ? t.href : null; };
+  for (const ua of [UA, CRAWLER_UA]) {
+    let cur = href;
+    try {
+      for (let i = 0; i < 6; i++) {
+        const r = await fetch(cur, {redirect: "manual", headers: {"User-Agent": ua, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, signal: AbortSignal.timeout(8000)});
+        const loc = r.headers.get("location");
+        if (r.status >= 300 && r.status < 400 && loc) {
+          const next = new URL(loc, cur);
+          if (/^\/(accounts\/)?login/.test(next.pathname)) {
+            const n = next.searchParams.get("next");
+            const f = n && final(new URL(n, "https://www.instagram.com").href);
+            if (f) return f;
+            break;
+          }
+          const ok = check(next.href);
+          if (!ok) break;
+          if (!/\/share\//.test(ok.href)) return ok.href;
+          cur = ok.href;
+          continue;
+        }
+        if (r.ok) {
+          const html = (await r.text()).slice(0, 800000).replace(/\\\//g, "/");
+          const m = html.match(/<meta[^>]+property="og:url"[^>]+content="([^"]+)"/i) || html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i)
+            || html.match(/https:\/\/www\.instagram\.com\/(?:reel|p|tv)\/[\w-]+/) || html.match(/https:\/\/www\.facebook\.com\/(?:reel\/\d+|watch\/?\?v=\d+|[^"'\s]+\/videos\/\d+)/);
+          const f = m && final((m[1] || m[0]).replace(/&amp;/g, "&"));
+          if (f) return f;
+        }
+        break;
+      }
+    } catch {}
+  }
+  return href;
 }
 
 const hits = new Map();
@@ -201,7 +222,7 @@ setInterval(() => {
 
 async function ytdlpInfo(c) {
   const T = c.k === "youtube" ? 60000 : 35000;
-  const args = o => ["-J", "--no-playlist", "--playlist-end", "10", "--no-warnings", ...base(c.k, o), c.href];
+  const args = o => ["-J", "--no-playlist", "--playlist-end", "10", "--no-warnings", "--socket-timeout", "15", ...base(c.k, o), c.href];
   try { return JSON.parse(await run(args(), T)); }
   catch (e) {
     // a stale/flagged session cookie makes Instagram/Facebook answer "checkpoint"/"login" even for public posts:
@@ -222,25 +243,73 @@ async function vynexInfo(href) {
   if (!r.ok || !d || !d.id) { const e = new Error("vynex failed"); e.stderr = (d && (d.error || d.message)) || ("HTTP " + r.status); throw e; }
   return d;
 }
-async function ytInfo(c) {
-  const preferV = VYNEX !== "off" && (YT_MODE === "vynex" || (YT_MODE === "auto" && Date.now() < ytBlockedUntil));
-  if (!preferV) {
-    try { return {kind: "ytdlp", info: await ytdlpInfo(c)}; }
-    catch (e) {
-      if (YT_MODE === "ytdlp" || VYNEX === "off" || why(e.stderr) === "novideo") throw e;
-      if (botBlock(e.stderr)) ytBlockedUntil = Date.now() + 30 * 60e3;
-    }
-  }
-  try { return {kind: "vynex", data: await vynexInfo(c.href)}; }
-  catch (e) {
-    if (preferV && YT_MODE === "auto") return {kind: "ytdlp", info: await ytdlpInfo(c)};
-    throw e;
-  }
+// Search speed: ask two sources at once and take the first good answer. yt-dlp is preferred (more qualities),
+// so when the other source answers first we still give yt-dlp a short grace period.
+function preferFirst(a, b, grace) {
+  return new Promise((resolve, reject) => {
+    let settled = false, aErr = null, bErr = null, bVal = null, t = null;
+    const win = (v, who) => { if (settled) return; settled = true; clearTimeout(t); resolve({...v, winner: who}); };
+    a.then(v => win(v, "a"), e => {
+      aErr = e;
+      if (bVal) win(bVal, "b"); else if (bErr && !settled) { settled = true; reject(aErr); }
+    });
+    b.then(v => { bVal = v; if (aErr) win(v, "b"); else t = setTimeout(() => win(v, "b"), grace); },
+      e => { bErr = e; if (aErr && !settled) { settled = true; reject(aErr); } });
+  });
 }
+
+async function ytInfo(c) {
+  const ytp = () => ytdlpInfo(c).then(info => ({kind: "ytdlp", info}));
+  const vxp = () => vynexInfo(c.href).then(data => ({kind: "vynex", data}));
+  if (VYNEX === "off" || YT_MODE === "ytdlp") return ytp();
+  if (YT_MODE === "vynex" || Date.now() < ytBlockedUntil) return vxp().catch(() => ytp());
+  const a = ytp(), b = vxp();
+  a.catch(e => { if (botBlock(e.stderr)) ytBlockedUntil = Date.now() + 30 * 60e3; });
+  const r = await preferFirst(a, b, 2500);
+  if (r.winner === "b") a.then(e => cachePut(c.href, e)).catch(() => {});   // upgrade the cache when yt-dlp finishes later
+  return r;
+}
+
+// Instagram fallback that needs no login and answers in ~1 s: the public embed page carries the reel's MP4 (with sound).
+const unjson = s => { try { return JSON.parse(`"${s}"`); } catch { return s.replace(/\\\//g, "/").replace(/\\u0026/g, "&"); } };
+async function igEmbed(href) {
+  const m = href.match(/instagram\.com\/(?:p|reels?|tv)\/([\w-]+)/);
+  if (!m) throw Object.assign(new Error("no shortcode"), {stderr: "notfound"});
+  const sc = m[1];
+  for (const u of [`https://www.instagram.com/p/${sc}/embed/captioned/`, `https://www.instagram.com/reel/${sc}/embed/`]) {
+    try {
+      const r = await fetch(u, {headers: {"User-Agent": UA, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, signal: AbortSignal.timeout(10000)});
+      if (!r.ok) continue;
+      const raw = await r.text();
+      const html = raw.replace(/\\\\\//g, "/").replace(/\\\\"/g, '"').replace(/\\"/g, '"');
+      const vm = html.match(/"video_url":"(https:[^"]+)"/) || raw.match(/<video[^>]+src="(https:[^"]+)"/);
+      if (!vm) continue;
+      const pick = re => { const x = html.match(re); return x ? unjson(x[1]) : ""; };
+      const url = unjson(vm[1]).replace(/&amp;/g, "&");
+      const w = +pick(/"dimensions":\{"height":\d+,"width":(\d+)\}/) || 0, h = +pick(/"dimensions":\{"height":(\d+)/) || 0;
+      const user = pick(/"owner":\{[^}]*?"username":"([^"]+)"/) || pick(/"username":"([^"]+)"/);
+      return {
+        title: user ? `Video by ${user}` : "Instagram", uploader: user, duration: +pick(/"video_duration":([\d.]+)/) || 0,
+        thumbnail: unjson(pick(/"display_url":"(https:[^"]+)"/)).replace(/&amp;/g, "&"),
+        formats: [{format_id: "embed", url, ext: "mp4", vcodec: "h264", acodec: "aac", width: w, height: h}],
+      };
+    } catch {}
+  }
+  throw Object.assign(new Error("embed: no video"), {stderr: "notfound"});
+}
+async function igInfo(c) {
+  const a = ytdlpInfo(c).then(info => ({kind: "ytdlp", info}));
+  const b = igEmbed(c.href).then(info => ({kind: "direct", info}));
+  const r = await preferFirst(a, b, 2500);
+  if (r.winner === "b") a.then(e => cachePut(c.href, e)).catch(() => {});
+  return r;
+}
+
 async function infoFor(c) {
   const hit = cacheGet(c.href);
   if (hit) return hit;
-  const entry = c.k === "youtube" ? await ytInfo(c) : {kind: "ytdlp", info: await ytdlpInfo(c)};
+  const r = c.k === "youtube" ? await ytInfo(c) : c.k === "instagram" ? await igInfo(c) : {kind: "ytdlp", info: await ytdlpInfo(c)};
+  const entry = {kind: r.kind, info: r.info, data: r.data};
   await cachePut(c.href, entry);
   return entry;
 }
@@ -250,10 +319,26 @@ const fmtDur = d => d ? `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")
 const THUMB_HOSTS = /(^|\.)(cdninstagram\.com|fbcdn\.net|ytimg\.com|twimg\.com|tiktokcdn\.com|tiktokcdn-us\.com|ibyteimg\.com|ggpht\.com)$/;
 const thumbUrl = t => { try { const u = new URL(t); return THUMB_HOSTS.test(u.hostname) ? "/api/thumb?u=" + encodeURIComponent(u.href) : ""; } catch { return ""; } };
 
+const fsize = f => f.filesize || f.filesize_approx || 0;
+const shortSide = f => Math.min(f.width || f.height, f.height || f.width);
+function estSize(e, q) {
+  const dur = e.duration || 0;
+  if (q === "mp3") return dur ? Math.round(dur * 192000 / 8) : 0;
+  const fs = e.formats || [];
+  const h264 = f => /^(avc|h264)/.test(f.vcodec || "") ? 1 : 0;
+  const v = fs.filter(f => f.vcodec && f.vcodec !== "none" && (f.height || f.width) && (q === "best" || shortSide(f) <= +q * 1.04))
+    .sort((x, y) => shortSide(y) - shortSide(x) || h264(y) - h264(x))[0];
+  if (!v || !fsize(v)) return 0;
+  if (v.acodec && v.acodec !== "none") return fsize(v);
+  const a = fs.filter(f => f.acodec && f.acodec !== "none" && (!f.vcodec || f.vcodec === "none"))
+    .sort((x, y) => (/m4a|mp4/.test(y.ext) ? 1 : 0) - (/m4a|mp4/.test(x.ext) ? 1 : 0) || (y.abr || 0) - (x.abr || 0))[0];
+  return fsize(v) + (a ? fsize(a) : 0);
+}
+
 function buildFormats(c, entry) {
   const enc = encodeURIComponent(c.href), formats = [];
-  const add = (q, i, label, note, kind, height) => formats.push({
-    label, note, q: String(q), i: i || 0, kind, height: height || 0,
+  const add = (q, i, label, note, kind, height, size) => formats.push({
+    label, note, q: String(q), i: i || 0, kind, height: height || 0, size: Math.round(size || 0),
     url: `/api/download?url=${enc}&q=${q}${i ? `&i=${i}` : ""}`
   });
   if (entry.kind === "vynex") {
@@ -261,8 +346,13 @@ function buildFormats(c, entry) {
     const max = Math.max(0, ...hs);
     let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, 3);
     if (!q.length) q = [max || "best"];
-    q.forEach((h, n) => add(h, 0, h === "best" ? "MP4" : `MP4 ${h}p`, n === 0 && h >= 720 ? "HD" : "", "video", +h || 0));
-    if ((d.audio || []).length || (d.formats || []).some(f => f.has_audio)) add("mp3", 0, "MP3", "მხოლოდ ხმა", "audio");
+    const au = (d.audio || []).slice().sort((a, b) => (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0))[0];
+    const vsz = h => {
+      const v = (d.formats || []).filter(f => +f.height && +f.height <= (h === "best" ? 1e5 : h * 1.04)).sort((a, b) => b.height - a.height)[0];
+      return v && +v.size ? +v.size + (v.has_audio ? 0 : +(au && au.size) || 0) : 0;
+    };
+    q.forEach((h, n) => add(h, 0, h === "best" ? "MP4" : `MP4 ${h}p`, n === 0 && h >= 720 ? "HD" : "", "video", +h || 0, vsz(h)));
+    if ((d.audio || []).length || (d.formats || []).some(f => f.has_audio)) add("mp3", 0, "MP3", "მხოლოდ ხმა", "audio", 0, d.duration ? d.duration * 24000 : 0);
     const s = Math.round(+d.duration || 0);
     return {title: d.title || "YouTube", thumbnail: d.thumbnail || "", seconds: s, uploader: d.channel || "", formats};
   }
@@ -274,9 +364,9 @@ function buildFormats(c, entry) {
     let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, multi ? 1 : 3);
     if (!q.length) q = [max || "best"];
     const at = info.entries ? i : 0;
-    q.forEach((h, n) => add(h, at, h === "best" ? "MP4" : `MP4 ${h}p`, multi ? `ვიდეო ${formats.length + 1}` : (n === 0 && h >= 720 ? "HD" : ""), "video", +h || 0));
+    q.forEach((h, n) => add(h, at, h === "best" ? "MP4" : `MP4 ${h}p`, multi ? `ვიდეო ${formats.length + 1}` : (n === 0 && h >= 720 ? "HD" : ""), "video", +h || 0, estSize(e, h)));
   }
-  if (!multi) add("mp3", info.entries ? vids[0].i : 0, "MP3", "მხოლოდ ხმა", "audio");
+  if (!multi) add("mp3", info.entries ? vids[0].i : 0, "MP3", "მხოლოდ ხმა", "audio", 0, estSize(vids[0].e, "mp3"));
   const s = Math.round(first.duration || info.duration || 0);
   return {title: first.title || info.title || NAMES[c.k], thumbnail: first.thumbnail || info.thumbnail || "", seconds: s,
     uploader: first.uploader || first.channel || info.uploader || "", formats};
@@ -367,18 +457,19 @@ async function ytdlpJob(j, entry) {
   const sort = (q === "best" || mp3 ? "res" : `res:${q}`) + ",vcodec:h264,acodec:m4a";
   const fmt = mp3 ? ["-f", "ba/b", "-x", "--audio-format", "mp3", "--audio-quality", "192K"]
     : ["-f", "bv*+ba/b", "-S", sort, "--merge-output-format", "mp4", "--remux-video", "mp4"];
-  let stream = 0, last = 0;
+  let stream = 0, last = 0, baseBytes = 0, lastTotal = 0;
   const onLine = line => {
-    const m = line.match(/^MOONP\s+([\d.]+)%/);
+    const m = line.match(/^MOONP\s+([\d.]+)%\s*(\S*)\s*(\S*)/);
     if (m) {
-      const p = +m[1];
-      if (p + 5 < last) stream++;           // second stream (audio) started
-      last = p;
+      const p = +m[1], got = +m[2] || 0, tot = Math.round(+m[3] || 0);
+      if (p + 5 < last) { stream++; baseBytes += lastTotal; }   // second stream (audio) started
+      last = p; if (tot) lastTotal = tot;
+      j.bytes = baseBytes + got; j.total = Math.max(j.total || 0, baseBytes + (tot || got));
       j.phase = "downloading";
       j.progress = Math.min(97, Math.round(mp3 ? p * 0.9 : stream === 0 ? p * 0.85 : 85 + p * 0.12));
     } else if (/^\[(Merger|VideoRemuxer|ExtractAudio|FixupM)/.test(line)) { j.phase = mp3 ? "converting" : "merging"; j.progress = Math.max(j.progress, 97); }
   };
-  const common = ["--newline", "--progress-template", "download:MOONP %(progress._percent_str)s", "--no-warnings", "--no-playlist", ...pick,
+  const common = ["--newline", "--progress-template", "download:MOONP %(progress._percent_str)s %(progress.downloaded_bytes)s %(progress.total_bytes,progress.total_bytes_estimate)s", "--no-warnings", "--no-playlist", ...pick,
     ...fmt, "-N", "4", "--max-filesize", "1500M", "--no-part", "-o", path.join(j.dir, "media.%(ext)s")];
   const attempts = [];
   if (entry && entry.file) attempts.push([...common, ...base(j.c.k), "--load-info-json", entry.file]);
@@ -388,7 +479,7 @@ async function ytdlpJob(j, entry) {
   for (const args of attempts) {
     if (j.state !== "working") return;
     await rm(j.dir, {recursive: true, force: true}).catch(() => {}); await mkdir(j.dir, {recursive: true});
-    stream = 0; last = 0;
+    stream = 0; last = 0; baseBytes = 0; lastTotal = 0; j.bytes = 0; j.total = 0;
     try { await spawnTracked(j, YTDLP, args, 8 * 60e3, onLine); lastErr = null; break; }
     catch (e) {
       lastErr = e;
@@ -399,6 +490,13 @@ async function ytdlpJob(j, entry) {
   if (lastErr) throw lastErr;
 }
 
+// Instagram embed result: one progressive MP4 (picture + sound) → copy it, or extract MP3
+async function directJob(j, info) {
+  const f = (info.formats || [])[0];
+  if (!f || !f.url) throw Object.assign(new Error("no url"), {code: "notfound"});
+  return ffmpegJob(j, {vurls: [f.url], aurls: [], hasAudio: true, dur: +info.duration || 0, headers: "Referer: https://www.instagram.com/\r\n"});
+}
+
 async function vynexJob(j, d) {
   const mp3 = j.q === "mp3", want = j.q === "best" ? 1e5 : +j.q;
   const vf = (d.formats || []).filter(f => +f.height).sort((a, b) => b.height - a.height);
@@ -406,19 +504,26 @@ async function vynexJob(j, d) {
   const au = (d.audio || []).slice().sort((a, b) => (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0))[0];
   const vurls = v ? [`${VYNEX}/download?id=${encodeURIComponent(d.id)}&height=${v.height}`, v.url].filter(Boolean) : [];
   const aurls = au ? [`${VYNEX}/audio?id=${encodeURIComponent(d.id)}&format_id=${encodeURIComponent(au.format_id)}`, au.url].filter(Boolean) : [];
-  const dur = +d.duration || 0;
+  j.total = v && +v.size ? +v.size + (v.has_audio ? 0 : +(au && au.size) || 0) : 0;
+  return ffmpegJob(j, {vurls, aurls, hasAudio: !!(v && (v.has_audio || !aurls.length)), dur: +d.duration || 0, noVideo: !v});
+}
+
+async function ffmpegJob(j, {vurls, aurls, hasAudio, dur, headers, noVideo}) {
+  const mp3 = j.q === "mp3";
   const onLine = line => {
     const m = line.match(/^out_time_(?:us|ms)=(\d+)/);
     if (m && dur) { j.phase = mp3 ? "converting" : "merging"; j.progress = Math.min(98, Math.round(+m[1] / 1e6 / dur * 100)); }
+    const sz = line.match(/^total_size=(\d+)/);
+    if (sz) { j.bytes = +sz[1]; if (j.total && j.bytes > j.total) j.total = j.bytes; }
   };
-  const inp = u => ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5", "-user_agent", UA, "-i", u];
+  const inp = u => ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5", "-user_agent", UA, ...(headers ? ["-headers", headers] : []), "-i", u];
   const head = ["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y"];
   await mkdir(j.dir, {recursive: true});
   const tries = [];
   if (mp3) {
     const src = aurls.length ? aurls : vurls;
     for (const a of src) tries.push([...head, ...inp(a), "-vn", "-c:a", "libmp3lame", "-b:a", "192k", path.join(j.dir, "media.mp3")]);
-  } else if (v && (v.has_audio || !aurls.length)) {
+  } else if (!noVideo && hasAudio) {
     for (const x of vurls) tries.push([...head, ...inp(x), "-c", "copy", "-movflags", "+faststart", path.join(j.dir, "media.mp4")]);
   } else {
     for (const x of vurls) for (const a of aurls)
@@ -444,6 +549,10 @@ async function runJob(j) {
     if (j.c.k === "youtube" && !entry) entry = await infoFor(j.c).catch(() => null);
     const title = entry ? (entry.kind === "vynex" ? entry.data.title : (entry.info.entries?.[(j.i || 1) - 1]?.title || entry.info.title)) : "";
     if (entry && entry.kind === "vynex") await vynexJob(j, entry.data);
+    else if (entry && entry.kind === "direct") {
+      try { await directJob(j, entry.info); }
+      catch (e) { if (j.state !== "working") throw e; await ytdlpJob(j, null); }   // CDN link expired → let yt-dlp try
+    }
     else {
       try { await ytdlpJob(j, entry); }
       catch (e) {
@@ -458,12 +567,12 @@ async function runJob(j) {
     const f = (await readdir(j.dir)).find(n => n.startsWith("media.") && !/\.(part|ytdl|temp|json)$/.test(n));
     if (!f) throw new Error("no output file");
     j.file = path.join(j.dir, f);
-    j.size = (await stat(j.file)).size;
+    j.size = (await stat(j.file)).size; j.bytes = j.size; j.total = j.size;
     const ext = path.extname(f).slice(1).toLowerCase();
     j.mime = ext === "mp3" ? "audio/mpeg" : ext === "m4a" ? "audio/mp4" : ext === "webm" ? "video/webm" : "video/mp4";
     j.name = `${safeName(title || NAMES[j.c.k] + " video")}${j.q === "mp3" ? "" : j.q === "best" ? "" : ` ${j.q}p`}.${ext}`;
     j.state = "ready"; j.phase = "ready"; j.progress = 100;
-    j.expires = Date.now() + 20 * 60e3;
+    j.expires = Date.now() + 90 * 60e3;
   } catch (e) {
     if (j.state === "working") { j.state = "error"; j.error = e.code || why(e.stderr); }
     rm(j.dir, {recursive: true, force: true}).catch(() => {});
@@ -481,6 +590,7 @@ const disposition = name => {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 };
 const jobView = j => ({id: j.id, state: j.state, phase: j.phase, progress: j.progress, size: j.size, name: j.name, mime: j.mime, error: j.error,
+  bytes: Math.round(j.bytes || 0), total: Math.round(j.total || 0),
   position: j.state === "queued" ? queue.indexOf(j) + 1 : 0});
 
 async function sendFile(req, res, j) {
@@ -501,7 +611,7 @@ async function sendFile(req, res, j) {
   j.readers++; j.expires = Math.max(j.expires, Date.now() + 15 * 60e3);
   const s = createReadStream(j.file, {start, end});
   const fin = () => { j.readers = Math.max(0, j.readers - 1); };
-  s.on("close", fin); res.on("close", () => s.destroy());
+  s.on("close", fin); res.on("close", () => { s.destroy(); j.expires = Math.max(j.expires, Date.now() + 90 * 60e3); });
   s.pipe(res);
 }
 
@@ -575,6 +685,9 @@ async function diag(res, params) {
   json(res, 200, out);
 }
 
+const SELF = process.env.KEEP_AWAKE === "0" ? "" : (process.env.KEEP_AWAKE_URL || process.env.RENDER_EXTERNAL_URL || "");
+if (SELF) setInterval(() => fetch(SELF.replace(/\/$/, "") + "/api/health", {signal: AbortSignal.timeout(15000)}).catch(() => {}), 10 * 60e3).unref();
+
 const CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS", "Access-Control-Allow-Headers": "Content-Type,Range",
   "Access-Control-Expose-Headers": "Content-Length,Content-Disposition,Content-Range"};
 
@@ -600,7 +713,7 @@ http.createServer(async (req, res) => {
       const j = jobs.get(jm[1]);
       if (!j) return json(res, 404, {error: "not found", code: "expired"});
       if (req.method === "DELETE") { cancelJob(j); await dropJob(j); return json(res, 200, {ok: true}); }
-      if (!jm[2]) return json(res, 200, jobView(j));
+      if (!jm[2]) { if (j.state === "ready") j.expires = Math.max(j.expires, Date.now() + 90 * 60e3); return json(res, 200, jobView(j)); }
       if (j.state !== "ready") return json(res, 409, {error: "not ready", ...jobView(j)});
       return sendFile(req, res, j);
     }
