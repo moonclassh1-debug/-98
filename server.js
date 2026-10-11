@@ -421,6 +421,11 @@ function estSize(e, q) {
   return fsize(v) + (a ? fsize(a) : 0);
 }
 
+// Quality ladder offered to the user: 2K / 4K appear only when the source really has them (YouTube),
+// everything else keeps the usual three or four steps.
+const LADDER = [2160, 1440, 1080, 720, 480, 360];
+const rungs = (max, multi) => LADDER.filter(h => h <= max * 1.04).slice(0, multi ? 1 : (max > 1100 ? 5 : 3));
+
 function buildFormats(c, entry) {
   const enc = encodeURIComponent(c.href), formats = [];
   const add = (q, i, label, note, kind, height, size) => formats.push({
@@ -430,7 +435,7 @@ function buildFormats(c, entry) {
   if (entry.kind === "vynex") {
     const d = entry.data, hs = (d.formats || []).map(f => +f.height || 0).filter(Boolean);
     const max = Math.max(0, ...hs);
-    let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, 3);
+    let q = rungs(max, false);
     if (!q.length) q = [max || "best"];
     const au = (d.audio || []).slice().sort((a, b) => (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0))[0];
     const vsz = h => {
@@ -447,7 +452,7 @@ function buildFormats(c, entry) {
   const first = vids[0].e, multi = vids.length > 1;
   for (const {e, i} of vids) {
     const max = Math.max(0, ...heightsOf(e));
-    let q = [1080, 720, 480, 360].filter(h => h <= max * 1.04).slice(0, multi ? 1 : 3);
+    let q = rungs(max, multi);
     if (!q.length) q = [max || "best"];
     const at = info.entries ? i : 0;
     q.forEach((h, n) => add(h, at, h === "best" ? "MP4" : `MP4 ${h}p`, multi ? `ვიდეო ${formats.length + 1}` : (n === 0 && h >= 720 ? "HD" : ""), "video", +h || 0, estSize(e, h)));
@@ -541,8 +546,10 @@ function spawnTracked(j, cmd, args, ms, onLine) {
 async function ytdlpJob(j, entry) {
   const {c, q, i} = j, mp3 = q === "mp3", pick = i ? ["--playlist-items", String(i)] : [];
   const sort = (q === "best" || mp3 ? "res" : `res:${q}`) + ",vcodec:h264,acodec:m4a";
+  // above 1080p YouTube only has VP9/AV1: take VP9 (plays on far more devices than AV1) and merge it into MP4
+  const hi = !mp3 && q !== "best" && +q > 1080;
   const fmt = mp3 ? ["-f", "ba/b", "-x", "--audio-format", "mp3", "--audio-quality", "192K"]
-    : ["-f", "bv*+ba/b", "-S", sort, "--merge-output-format", "mp4", "--remux-video", "mp4"];
+    : ["-f", hi ? "bv*[vcodec^=vp09]+ba/bv*+ba/b" : "bv*+ba/b", "-S", sort, "--merge-output-format", "mp4", "--remux-video", "mp4"];
   let stream = 0, last = 0, baseBytes = 0, lastTotal = 0;
   const onLine = line => {
     const m = line.match(/^MOONP\s+([\d.]+)%\s*(\S*)\s*(\S*)/);
