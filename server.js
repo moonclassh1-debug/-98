@@ -363,9 +363,9 @@ const durSec = v => {
 async function ytkInfo(href) {
   const d = await ytkCall("POST", "/fetch-video", {url: href, mode: "video"});
   const v = d.video || {};
-  const qualities = (d.qualities || []).map(q => ({...q, height: qHeight(q)})).filter(q => q.height);
+  const qualities = (d.qualities || []).filter(q => !q.type || q.type === "video").map(q => ({...q, height: qHeight(q)})).filter(q => q.height);
   if (!qualities.length) { const e = new Error("ytk no qualities"); e.stderr = "no video"; throw e; }
-  return {title: v.title || "YouTube", thumbnail: v.thumbnail || "", channel: v.channel_name || "", duration: durSec(v.duration), qualities};
+  return {title: v.title || "YouTube", thumbnail: v.thumbnail || "", channel: v.channel_name || "", duration: +v.duration_seconds || durSec(v.duration), qualities};
 }
 async function ytkJob(j, d) {
   const want = j.q === "best" ? 1e5 : +j.q;
