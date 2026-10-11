@@ -1,7 +1,7 @@
 import http from "node:http";
 import {spawn, execFile} from "node:child_process";
 import {readFile, readdir, rm, writeFile, stat, chmod, rename, mkdir} from "node:fs/promises";
-import {copyFileSync, createReadStream} from "node:fs";
+import {copyFileSync, createReadStream, readFileSync, writeFileSync} from "node:fs";
 import os from "node:os";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -39,6 +39,19 @@ if (process.env.YTDLP_COOKIES) {
   try { copyFileSync(process.env.YTDLP_COOKIES, COOKIES); hasCookies = true; }  // copy: yt-dlp rewrites the file
   catch (e) { console.error("cookies not loaded:", e.message); }
 }
+// Simplest way to unlock Instagram reels: paste only the `sessionid` cookie of a (spare) Instagram account into the
+// INSTAGRAM_SESSIONID env var. Instagram now hides many reels from logged-out visitors (especially datacenter IPs),
+// while the logged-in API returns every public reel/post. A cookies.txt is generated from it automatically.
+if (process.env.INSTAGRAM_SESSIONID) {
+  const sid = decodeURIComponent(process.env.INSTAGRAM_SESSIONID.trim().replace(/^sessionid=/, ""));
+  const uid = (sid.match(/^(\d+)/) || [])[1] || "";
+  const exp = Math.floor(Date.now() / 1000) + 365 * 86400;
+  const line = (n, v) => `.instagram.com\tTRUE\t/\tTRUE\t${exp}\t${n}\t${v}`;
+  let txt = "";
+  try { txt = hasCookies ? readFileSync(COOKIES, "utf8").split("\n").filter(l => !/\tsessionid\t|\tds_user_id\t/.test(l)).join("\n") + "\n" : "# Netscape HTTP Cookie File\n"; } catch {}
+  txt += [line("sessionid", encodeURIComponent(sid)), uid && line("ds_user_id", uid)].filter(Boolean).join("\n") + "\n";
+  try { writeFileSync(COOKIES, txt); hasCookies = true; console.log("Instagram session loaded"); } catch (e) { console.error("session not loaded:", e.message); }
+}
 
 // TikTok blocks plain requests from datacenter IPs; impersonating a real browser helps
 const base = (k, o = {}) => [
@@ -68,6 +81,7 @@ async function updateYtdlp() {
     await rename(part, dest);
     YTDLP = dest; ytVersion = v;
     console.log("yt-dlp updated to", v);
+    restartPool();
   } catch (e) { console.error("yt-dlp update failed (keeping current):", e.message); }
 }
 sh(YTDLP, ["--version"]).then(v => { if (!ytVersion) ytVersion = v.trim(); });
@@ -168,6 +182,72 @@ function run(args, ms = 30000) {
   });
 }
 
+// ---------------------------------------------------------------- persistent yt-dlp workers (fast search)
+// yt-dlp is imported once per worker process and its sessions/caches are reused, instead of a cold
+// `yt-dlp -J` start for every search. Falls back to the CLI automatically if Python workers can't start.
+const WORKER_PY = path.join(dir, "ytdl_worker.py");
+const POOL_SIZE = Math.max(1, Number(process.env.YTDLP_WORKERS || 2));
+const pool = [], waiting = [];
+let reqSeq = 0, poolBroken = false, poolCrashes = 0;
+function spawnWorker() {
+  const zip = YTDLP.startsWith(TMP) ? YTDLP : "";
+  const p = spawn("python3", [WORKER_PY, zip], {stdio: ["pipe", "pipe", "pipe"]});
+  const w = {p, busy: null, ready: false, buf: "", served: 0, retire: false};
+  p.stdout.on("data", d => {
+    w.buf += d; let k;
+    while ((k = w.buf.indexOf("\n")) >= 0) { const line = w.buf.slice(0, k); w.buf = w.buf.slice(k + 1); onWorkerLine(w, line); }
+  });
+  p.stderr.on("data", () => {});
+  p.stdin.on("error", () => {});
+  p.on("error", () => {});
+  p.on("close", () => {
+    const i = pool.indexOf(w); if (i >= 0) pool.splice(i, 1);
+    if (w.busy) { const b = w.busy; w.busy = null; clearTimeout(b.t); b.reject(Object.assign(new Error("worker died"), {stderr: b.err || "ERROR: worker died"})); }
+    if (!w.ready && ++poolCrashes >= 3) {
+      poolBroken = true;
+      console.error("yt-dlp workers can't start — using the CLI");
+      waiting.splice(0).forEach(b => b.reject(Object.assign(new Error("pool down"), {poolDown: true, stderr: ""})));
+      return;
+    }
+    setTimeout(fillPool, 300);
+  });
+  pool.push(w);
+}
+function fillPool() { if (!poolBroken) while (pool.length < POOL_SIZE) spawnWorker(); }
+function onWorkerLine(w, line) {
+  let m; try { m = JSON.parse(line); } catch { return; }
+  if (m.ready) { w.ready = true; poolCrashes = 0; pumpPool(); return; }
+  const b = w.busy; if (!b || m.id !== b.id) return;
+  w.busy = null; clearTimeout(b.t); w.served++;
+  if (m.ok) b.resolve(m.info);
+  else { console.error("yt-dlp ERROR:", String(m.err).slice(-600)); b.reject(Object.assign(new Error("extract failed"), {stderr: String(m.err || "")})); }
+  if (w.retire || w.served > 300) w.p.kill();
+  pumpPool();
+}
+function pumpPool() {
+  for (const w of pool) {
+    if (!w.ready || w.busy || w.retire || !waiting.length) continue;
+    const b = waiting.shift();
+    w.busy = b;
+    b.t = setTimeout(() => { b.err = "ERROR: timeout"; w.p.kill("SIGKILL"); }, b.ms);
+    w.p.stdin.write(JSON.stringify({id: b.id, args: b.args, url: b.url}) + "\n");
+  }
+}
+function poolExtract(args, url, ms) {
+  if (poolBroken) return Promise.reject(Object.assign(new Error("pool down"), {poolDown: true, stderr: ""}));
+  return new Promise((resolve, reject) => { waiting.push({id: ++reqSeq, args, url, ms, resolve, reject}); fillPool(); pumpPool(); });
+}
+function restartPool() { for (const w of [...pool]) { if (w.busy) w.retire = true; else w.p.kill(); } }
+fillPool();
+
+// the line of yt-dlp's error that explains the failure (shown in the app so problems can be diagnosed)
+const errLine = (s = "") => {
+  const l = String(s).split("\n").map(x => x.trim()).filter(Boolean).reverse().find(x => /ERROR/.test(x)) || "";
+  let t = l.replace(/^.*?ERROR:\s*/, "").replace(/^\[[^\]]+\]\s*[\w-]+:\s*/, "").slice(0, 240);
+  if (PROXY) t = t.split(PROXY).join("***");
+  return t;
+};
+
 const json = (res, code, obj) => {
   if (res.headersSent) return res.end();
   res.writeHead(code, {"Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store"});
@@ -222,13 +302,17 @@ setInterval(() => {
 
 async function ytdlpInfo(c) {
   const T = c.k === "youtube" ? 60000 : 35000;
-  const args = o => ["-J", "--no-playlist", "--playlist-end", "10", "--no-warnings", "--socket-timeout", "15", ...base(c.k, o), c.href];
-  try { return JSON.parse(await run(args(), T)); }
+  const opts = o => ["--no-playlist", "--playlist-end", "10", "--no-warnings", "--socket-timeout", "15", ...base(c.k, o)];
+  const one = async o => {
+    try { return await poolExtract(opts(o), c.href, T); }
+    catch (e) { if (e.poolDown) return JSON.parse(await run(["-J", ...opts(o), c.href], T)); throw e; }
+  };
+  try { return await one(); }
   catch (e) {
     // a stale/flagged session cookie makes Instagram/Facebook answer "checkpoint"/"login" even for public posts:
     // retry once logged out (yt-dlp's logged-out Instagram path works for public reels/posts)
     if (hasCookies && (c.k === "instagram" || c.k === "facebook") && why(e.stderr) !== "novideo") {
-      try { return JSON.parse(await run(args({noCookies: true}), T)); } catch {}
+      try { return await one({noCookies: true}); } catch {}
     }
     throw e;
   }
@@ -395,7 +479,7 @@ async function extract(req, res) {
     });
   } catch (err) {
     cache.delete(c.href);
-    json(res, 422, {error: "video not found or not public", code: err.code || why(err.stderr)});
+    json(res, 422, {error: "video not found or not public", code: err.code || why(err.stderr), detail: errLine(err.stderr)});
   }
 }
 
@@ -470,7 +554,7 @@ async function ytdlpJob(j, entry) {
     } else if (/^\[(Merger|VideoRemuxer|ExtractAudio|FixupM)/.test(line)) { j.phase = mp3 ? "converting" : "merging"; j.progress = Math.max(j.progress, 97); }
   };
   const common = ["--newline", "--progress-template", "download:MOONP %(progress._percent_str)s %(progress.downloaded_bytes)s %(progress.total_bytes,progress.total_bytes_estimate)s", "--no-warnings", "--no-playlist", ...pick,
-    ...fmt, "-N", "4", "--max-filesize", "1500M", "--no-part", "-o", path.join(j.dir, "media.%(ext)s")];
+    ...fmt, "-N", "8", "--http-chunk-size", "10M", "--max-filesize", "1500M", "--no-part", "-o", path.join(j.dir, "media.%(ext)s")];
   const attempts = [];
   if (entry && entry.file) attempts.push([...common, ...base(j.c.k), "--load-info-json", entry.file]);
   attempts.push([...common, ...base(c.k), c.href]);
@@ -501,14 +585,15 @@ async function vynexJob(j, d) {
   const mp3 = j.q === "mp3", want = j.q === "best" ? 1e5 : +j.q;
   const vf = (d.formats || []).filter(f => +f.height).sort((a, b) => b.height - a.height);
   const v = vf.find(f => +f.height <= want * 1.04) || vf[vf.length - 1];
-  const au = (d.audio || []).slice().sort((a, b) => (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0))[0];
+  const isAac = a => /m4a|mp4|aac/i.test(`${a.ext || ""} ${a.mime || a.mime_type || ""} ${a.codec || a.acodec || ""}`) || String(a.format_id) === "140";
+  const au = (d.audio || []).slice().sort((a, b) => (isAac(b) ? 1 : 0) - (isAac(a) ? 1 : 0) || (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0))[0];
   const vurls = v ? [`${VYNEX}/download?id=${encodeURIComponent(d.id)}&height=${v.height}`, v.url].filter(Boolean) : [];
   const aurls = au ? [`${VYNEX}/audio?id=${encodeURIComponent(d.id)}&format_id=${encodeURIComponent(au.format_id)}`, au.url].filter(Boolean) : [];
   j.total = v && +v.size ? +v.size + (v.has_audio ? 0 : +(au && au.size) || 0) : 0;
-  return ffmpegJob(j, {vurls, aurls, hasAudio: !!(v && (v.has_audio || !aurls.length)), dur: +d.duration || 0, noVideo: !v});
+  return ffmpegJob(j, {vurls, aurls, hasAudio: !!(v && (v.has_audio || !aurls.length)), dur: +d.duration || 0, noVideo: !v, aacAudio: !!(au && isAac(au))});
 }
 
-async function ffmpegJob(j, {vurls, aurls, hasAudio, dur, headers, noVideo}) {
+async function ffmpegJob(j, {vurls, aurls, hasAudio, dur, headers, noVideo, aacAudio}) {
   const mp3 = j.q === "mp3";
   const onLine = line => {
     const m = line.match(/^out_time_(?:us|ms)=(\d+)/);
@@ -526,9 +611,12 @@ async function ffmpegJob(j, {vurls, aurls, hasAudio, dur, headers, noVideo}) {
   } else if (!noVideo && hasAudio) {
     for (const x of vurls) tries.push([...head, ...inp(x), "-c", "copy", "-movflags", "+faststart", path.join(j.dir, "media.mp4")]);
   } else {
-    for (const x of vurls) for (const a of aurls)
-      tries.push([...head, ...inp(x), ...inp(a), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-        "-shortest", "-movflags", "+faststart", path.join(j.dir, "media.mp4")]);
+    // stream copy first (instant merge); re-encode the audio only if its codec can't go into MP4 as-is
+    const codecs = aacAudio ? [["-c:a", "copy"], ["-c:a", "aac", "-b:a", "192k"]] : [["-c:a", "aac", "-b:a", "192k"]];
+    for (const acodec of codecs)
+      for (const x of vurls) for (const a of aurls)
+        tries.push([...head, ...inp(x), ...inp(a), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", ...acodec,
+          "-shortest", "-movflags", "+faststart", path.join(j.dir, "media.mp4")]);
   }
   if (!tries.length) throw Object.assign(new Error("no formats"), {code: "notfound"});
   let lastErr;
