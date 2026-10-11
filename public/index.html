@@ -194,7 +194,7 @@ footer{border-top-color:rgba(255,255,255,.14)}footer small{color:rgba(255,255,25
 <script>
 (function(){
 "use strict";
-var API_URL="/api/extract";
+var API_URL="/api/extract", YT_VYNEX=false; // true = if our server fails, ask vynex straight from the browser (off for now)
 var YT_BASE="https://vynex.ai/api/tools/youtube-video", YT_VIDEO=YT_BASE+"/download", YT_AUDIO=YT_BASE+"/audio";
 var $=function(s){return document.querySelector(s)};
 var P=[
@@ -296,14 +296,14 @@ function ownFlow(v){
   });
 }
 
-var errs={ratelimit:"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.",unsupported:"ეს ბმული არ არის მხარდაჭერილი.",login:"ეს ვიდეო დახურულია ან პლატფორმა ავტორიზაციას ითხოვს. დახურული პოსტი ვერ ჩამოიტვირთება.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
+var errs={ratelimit:"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.",unsupported:"ეს ბმული არ არის მხარდაჭერილი.",login:"ეს ვიდეო დახურულია ან პლატფორმა ავტორიზაციას ითხოვს. დახურული პოსტი ვერ ჩამოიტვირთება.",novideo:"ამ ბმულზე ვიდეო ვერ მოიძებნა.",live:"პირდაპირი ეთერის გადმოწერა შეუძლებელია.",toolong:"ვიდეო ძალიან გრძელია.",ytblock:"YouTube-მა სერვერი დროებით დაბლოკა (ბოტის შემოწმება), ან ვიდეო დახურულია. სცადე მოგვიანებით.",busy:"სერვერი დაკავებულია, სცადე რამდენიმე წამში.",notfound:"ვიდეო ვერ მოიძებნა ან არ არის საჯარო."};
 f.addEventListener("submit",function(e){
   e.preventDefault();r.classList.remove("on");f.classList.remove("err");
   var v=u.value.trim(),ok=false;
   try{ok=/^https?:$/.test(new URL(v).protocol)}catch(_){}
   if(!ok){f.classList.add("err");msg("შეიყვანე სწორი ბმული (https://...)","bad");u.focus();return}
   g.disabled=true;g.classList.add("ld");msg("მუშავდება…");
-  ownFlow(v).catch(function(er){if(isYT(v))return ytFlow(v);throw er})
+  ownFlow(v).catch(function(er){if(YT_VYNEX&&isYT(v))return ytFlow(v);throw er})
   .catch(function(er){
     msg(er&&er.code&&errs[er.code]||(er&&er.error==="too many requests"?"ძალიან ბევრი მოთხოვნა, ცოტა ხანი მოიცადე.":"ვერ მოხერხდა. შეამოწმე ბმული და სცადე თავიდან."),"bad");
   })
