@@ -475,22 +475,44 @@ function fbParse(raw) {
     thumbnail: fbMeta(html, "og:image"), formats, referer: "https://www.facebook.com/"
   };
 }
-async function fbOg(href) {
-  const MOBILE = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36";
-  const tries = [[href, CRAWLER_UA], [href.replace("://www.facebook.com", "://m.facebook.com"), MOBILE],
-    [`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false`, UA]];
-  for (const [u, ua] of tries) {
-    try {
-      const r = await fetch(u, {headers: {"User-Agent": ua, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, redirect: "follow", signal: AbortSignal.timeout(12000)});
-      if (!r.ok) continue;
-      const info = fbParse((await r.text()).slice(0, 2e6));
-      if (info) return info;
-    } catch {}
+const FB_MOBILE = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36";
+// A "share" link resolves to .../story.php?story_fbid=ID&id=PAGE (or /reel/ID, /watch/?v=ID, /PAGE/videos/ID): pull the numeric ids out
+function fbIds(href) {
+  let u; try { u = new URL(href); } catch { return []; }
+  const ids = new Set();
+  for (const k of ["story_fbid", "v", "video_id", "fbid"]) { const v = u.searchParams.get(k); if (/^\d{8,}$/.test(v || "")) ids.add(v); }
+  const m = u.pathname.match(/\/(?:videos|reels?)\/(?:[^/]+\/)?(\d{8,})/); if (m) ids.add(m[1]);
+  return [...ids];
+}
+const fbPageId = href => { try { const v = new URL(href).searchParams.get("id"); return /^\d{6,}$/.test(v || "") ? v : ""; } catch { return ""; } };
+// pages that carry the public video without a login: the embed page of the video id (what Facebook's own embed iframe loads),
+// the video plugin, and the plain page as seen by the link-preview crawler / a phone
+function fbCandidates(href) {
+  const plugin = h => `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(h)}&show_text=false`;
+  const page = fbPageId(href), list = [];
+  for (const id of fbIds(href)) {
+    list.push([`https://www.facebook.com/video/embed?video_id=${id}`, UA]);
+    list.push([plugin(`https://www.facebook.com/watch/?v=${id}`), UA]);
+    if (page) list.push([plugin(`https://www.facebook.com/${page}/videos/${id}`), UA]);
   }
-  throw Object.assign(new Error("fb: no video"), {stderr: "notfound"});
+  list.push([href, CRAWLER_UA], [href.replace("://www.facebook.com", "://m.facebook.com"), FB_MOBILE], [plugin(href), UA]);
+  return list;
+}
+const fbGet = async (u, ua) => {
+  const r = await fetch(u, {headers: {"User-Agent": ua, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, redirect: "follow", signal: AbortSignal.timeout(12000)});
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return (await r.text()).slice(0, 2e6);
+};
+async function fbOg(href) {
+  const probes = fbCandidates(href).map(([u, ua]) => fbGet(u, ua).then(html => { const info = fbParse(html); if (!info) throw new Error("no video"); return info; }));
+  try { return await Promise.any(probes); }
+  catch { throw Object.assign(new Error("fb: no video"), {stderr: "notfound"}); }
 }
 async function fbInfo(c) {
-  const a = ytdlpInfo(c).then(info => ({kind: "ytdlp", info}));
+  const id = fbIds(c.href)[0];
+  // yt-dlp on the page itself gets a login wall from a datacenter IP; its embed-page path often does not
+  const a = ytdlpInfo(c).catch(e => id ? ytdlpInfo({...c, href: `https://www.facebook.com/video/embed?video_id=${id}`}).catch(() => { throw e; }) : Promise.reject(e))
+    .then(info => ({kind: "ytdlp", info}));
   const b = fbOg(c.href).then(info => ({kind: "direct", info}));
   const r = await preferFirst(a, b, 2500);
   if (r.winner === "b") a.then(e => cachePut(c.href, e)).catch(() => {});
@@ -899,9 +921,9 @@ const DIAG_KEY = process.env.DIAG_KEY || "";
 async function diag(res, params) {
   if (!DIAG_KEY || params.get("key") !== DIAG_KEY) return json(res, 403, {error: "forbidden"});
   const full = params.has("full");   // the slow yt-dlp test only on request: /api/diag?key=…&url=…&full=1
-  const [ytdlp, node, ffmpeg] = await Promise.all([sh(YTDLP, ["--version"]), sh("node", ["--version"]), sh("ffmpeg", ["-version"])]);
+  const [ytdlp, node, ffmpeg] = await Promise.all([sh(YTDLP, ["--version"], 30000), sh("node", ["--version"]), sh("ffmpeg", ["-version"])]);
   const out = {
-    ytdlp: ytdlp.trim(), ytdlpPath: YTDLP, node: node.trim(), ffmpeg: ffmpeg.split("\n")[0],
+    ytdlp: ytdlp.trim().slice(0, 120), ytdlpPath: YTDLP, node: node.trim(), ffmpeg: ffmpeg.split("\n")[0],
     ytk: YTK_ON ? "on" : "off (set YTK_BASE and YTK_KEY)", cookiesLoaded: hasCookies, proxySet: !!PROXY, jsRuntime: JS_RT, ytMode: YT_MODE, ytBlocked: Date.now() < ytBlockedUntil,
     jobs: {running, queued: queue.length, total: jobs.size}
   };
@@ -916,10 +938,11 @@ async function diag(res, params) {
         .then(async r => {
           const html = (await r.text()).slice(0, 2e6);
           return {name, status: r.status, finalUrl: r.url.slice(0, 160), bytes: html.length, title: (html.match(/<title[^>]*>([^<]{0,80})/i) || [])[1] || "",
-            loginWall: /log in to facebook|login_form|\/login\/\?/i.test(html), ogVideo: !!fbMeta(html, "og:video") || !!fbMeta(html, "og:video:secure_url"), parsed: !!fbParse(html)};
+            loginWall: /log in to facebook|login_form|\/login\/\?/i.test(r.url + html.slice(0, 4000)),
+            markers: Object.fromEntries(["hd_src", "sd_src", "playable_url", "browser_native", "videoData", ".mp4"].map(k => [k, html.split(k).length - 1])), ogVideo: !!fbMeta(html, "og:video") || !!fbMeta(html, "og:video:secure_url"), parsed: !!fbParse(html)};
         }, e => ({name, error: String(e.message || e).slice(0, 120)}));
-      out.fbTest = await Promise.all([["crawler", c.href, CRAWLER_UA], ["browser", c.href, UA],
-        ["plugin", `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(c.href)}&show_text=false`, UA]].map(probe));
+      out.fbIds = fbIds(c.href); out.fbPage = fbPageId(c.href);
+      out.fbTest = await Promise.all(fbCandidates(c.href).slice(0, 8).map(([u, ua], n) => probe([`#${n} ${u.replace("https://www.facebook.com", "").slice(0, 70)}`, u, ua])));
     }
     if (YTK_ON && c.k === "youtube") out.ytkTest = await ytkInfo(c.href).then(d => ({ok: true, heights: d.qualities.map(x => x.height), labels: d.qualities.map(x => x.label)}), e => ({ok: false, error: errLine(e.stderr) || e.message}));
     if (full || c.k !== "facebook") {
@@ -948,7 +971,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-5", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-6", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
