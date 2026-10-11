@@ -450,6 +450,52 @@ async function igEmbed(href) {
   }
   throw Object.assign(new Error("embed: no video"), {stderr: "notfound"});
 }
+// Facebook without login: yt-dlp answers "Cannot parse data" when Facebook shows a datacenter IP a login wall.
+// The page that Facebook serves to its own link-preview crawler (and the plugin/embed page) still carries the public video.
+const fbMeta = (html, p) => {
+  const a = html.match(new RegExp(`<meta[^>]+(?:property|name)="${p}"[^>]+content="([^"]*)"`, "i"))
+    || html.match(new RegExp(`<meta[^>]+content="([^"]*)"[^>]+(?:property|name)="${p}"`, "i"));
+  return a ? a[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#039;/g, "'") : "";
+};
+function fbParse(raw) {
+  const html = raw.replace(/\\\//g, "/");
+  const pick = re => { const m = html.match(re); return m ? unjson(m[1]).replace(/&amp;/g, "&") : ""; };
+  const hd = pick(/"(?:browser_native_hd_url|playable_url_quality_hd|hd_src_no_ratelimit|hd_src)":"(https:[^"]+)"/);
+  let sd = pick(/"(?:browser_native_sd_url|playable_url|sd_src_no_ratelimit|sd_src)":"(https:[^"]+)"/);
+  const og = fbMeta(html, "og:video:secure_url") || fbMeta(html, "og:video:url") || fbMeta(html, "og:video");
+  if (!sd && og && !/\/video\/embed|\/plugins\//.test(og) && /fbcdn|\.mp4|video/i.test(og)) sd = og;
+  const formats = [];
+  if (hd) formats.push({format_id: "hd", url: hd, ext: "mp4", vcodec: "h264", acodec: "aac", height: 720, width: 1280});
+  if (sd && sd !== hd) formats.push({format_id: "sd", url: sd, ext: "mp4", vcodec: "h264", acodec: "aac", height: 360, width: 640});
+  if (!formats.length) return null;
+  const h = +fbMeta(html, "og:video:height") || 0, w = +fbMeta(html, "og:video:width") || 0;
+  if (h && !hd) { formats[0].height = h; formats[0].width = w || Math.round(h * 16 / 9); }
+  return {
+    title: (fbMeta(html, "og:title") || "Facebook video").replace(/\s+/g, " ").slice(0, 120), uploader: "", duration: 0,
+    thumbnail: fbMeta(html, "og:image"), formats, referer: "https://www.facebook.com/"
+  };
+}
+async function fbOg(href) {
+  const MOBILE = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36";
+  const tries = [[href, CRAWLER_UA], [href.replace("://www.facebook.com", "://m.facebook.com"), MOBILE],
+    [`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false`, UA]];
+  for (const [u, ua] of tries) {
+    try {
+      const r = await fetch(u, {headers: {"User-Agent": ua, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, redirect: "follow", signal: AbortSignal.timeout(12000)});
+      if (!r.ok) continue;
+      const info = fbParse((await r.text()).slice(0, 2e6));
+      if (info) return info;
+    } catch {}
+  }
+  throw Object.assign(new Error("fb: no video"), {stderr: "notfound"});
+}
+async function fbInfo(c) {
+  const a = ytdlpInfo(c).then(info => ({kind: "ytdlp", info}));
+  const b = fbOg(c.href).then(info => ({kind: "direct", info}));
+  const r = await preferFirst(a, b, 2500);
+  if (r.winner === "b") a.then(e => cachePut(c.href, e)).catch(() => {});
+  return r;
+}
 async function igInfo(c) {
   const a = ytdlpInfo(c).then(info => ({kind: "ytdlp", info}));
   const b = igEmbed(c.href).then(info => ({kind: "direct", info}));
@@ -461,7 +507,7 @@ async function igInfo(c) {
 async function infoFor(c) {
   const hit = cacheGet(c.href);
   if (hit) return hit;
-  const r = c.k === "youtube" ? await ytInfo(c) : c.k === "instagram" ? await igInfo(c) : {kind: "ytdlp", info: await ytdlpInfo(c)};
+  const r = c.k === "youtube" ? await ytInfo(c) : c.k === "instagram" ? await igInfo(c) : c.k === "facebook" ? await fbInfo(c) : {kind: "ytdlp", info: await ytdlpInfo(c)};
   const entry = {kind: r.kind, info: r.info, data: r.data};
   await cachePut(c.href, entry);
   return entry;
@@ -662,9 +708,12 @@ async function ytdlpJob(j, entry) {
 
 // Instagram embed result: one progressive MP4 (picture + sound) → copy it, or extract MP3
 async function directJob(j, info) {
-  const f = (info.formats || [])[0];
-  if (!f || !f.url) throw Object.assign(new Error("no url"), {code: "notfound"});
-  return ffmpegJob(j, {vurls: [f.url], aurls: [], hasAudio: true, dur: +info.duration || 0, headers: "Referer: https://www.instagram.com/\r\n"});
+  const fs = (info.formats || []).filter(f => f && f.url).sort((a, b) => (b.height || 0) - (a.height || 0));
+  if (!fs.length) throw Object.assign(new Error("no url"), {code: "notfound"});
+  const want = j.q === "best" || j.q === "mp3" ? 1e5 : +j.q;
+  const first = fs.find(f => (f.height || 0) <= want * 1.04) || fs[fs.length - 1];
+  const vurls = [first, ...fs.filter(f => f !== first)].map(f => f.url);
+  return ffmpegJob(j, {vurls, aurls: [], hasAudio: true, dur: +info.duration || 0, headers: `Referer: ${info.referer || "https://www.instagram.com/"}\r\n`});
 }
 
 async function vynexJob(j, d) {
@@ -862,6 +911,17 @@ async function diag(res, params) {
     let t = await sh(YTDLP, ["-v", "-s", "--no-playlist", ...base(c.k), c.href], 60000);
     if (PROXY) t = t.split(PROXY).join("***");
     out.resolved = c.href;
+    if (c.k === "facebook") {   // what Facebook really answers this server (status, login wall?, video found?)
+      out.fbTest = [];
+      for (const [name, u, ua] of [["crawler", c.href, CRAWLER_UA], ["browser", c.href, UA], ["plugin", `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(c.href)}&show_text=false`, UA]]) {
+        try {
+          const r = await fetch(u, {headers: {"User-Agent": ua, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9"}, redirect: "follow", signal: AbortSignal.timeout(12000)});
+          const html = (await r.text()).slice(0, 2e6);
+          out.fbTest.push({name, status: r.status, finalUrl: r.url.slice(0, 160), bytes: html.length, title: (html.match(/<title[^>]*>([^<]{0,80})/i) || [])[1] || "",
+            loginWall: /log in to facebook|login_form|\/login\/\?/i.test(html), ogVideo: !!fbMeta(html, "og:video") || !!fbMeta(html, "og:video:secure_url"), parsed: !!fbParse(html)});
+        } catch (e) { out.fbTest.push({name, error: String(e.message || e).slice(0, 120)}); }
+      }
+    }
     if (YTK_ON && c.k === "youtube") out.ytkTest = await ytkInfo(c.href).then(d => ({ok: true, heights: d.qualities.map(x => x.height), labels: d.qualities.map(x => x.label)}), e => ({ok: false, error: errLine(e.stderr) || e.message}));
     out.test = t.slice(-3500);
   }
@@ -885,7 +945,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-2", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-4", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
