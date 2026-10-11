@@ -482,7 +482,11 @@ async function extract(req, res) {
     const th = out.thumbnail && (c.k === "instagram" || c.k === "facebook" ? thumbUrl(out.thumbnail) || out.thumbnail : out.thumbnail);
     json(res, 200, {
       platform: NAMES[c.k], key: c.k, url: c.href, title: out.title, uploader: out.uploader,
-      thumbnail: th || "", duration: fmtDur(out.seconds), seconds: out.seconds, formats: out.formats
+      thumbnail: th || "", duration: fmtDur(out.seconds), seconds: out.seconds, formats: out.formats,
+      // what the source really offered (helps to tell "video has no 4K" from "YouTube hid it from this server")
+      source: entry.kind,
+      maxHeight: entry.kind === "vynex" ? Math.max(0, ...(entry.data.formats || []).map(f => +f.height || 0))
+        : Math.max(0, ...videosOf(entry.info).flatMap(v => heightsOf(v.e)))
     });
   } catch (err) {
     cache.delete(c.href);
@@ -799,7 +803,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-1", features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
@@ -821,4 +825,3 @@ http.createServer(async (req, res) => {
     json(res, 404, {error: "not found"});
   } catch (e) { console.error("server error:", e); json(res, 500, {error: "server error"}); }
 }).listen(PORT, () => console.log(`MOON running on :${PORT}`));
-
