@@ -939,7 +939,9 @@ async function diag(res, params) {
           const html = (await r.text()).slice(0, 2e6);
           return {name, status: r.status, finalUrl: r.url.slice(0, 160), bytes: html.length, title: (html.match(/<title[^>]*>([^<]{0,80})/i) || [])[1] || "",
             loginWall: /log in to facebook|login_form|\/login\/\?/i.test(r.url + html.slice(0, 4000)),
-            markers: Object.fromEntries(["hd_src", "sd_src", "playable_url", "browser_native", "videoData", ".mp4"].map(k => [k, html.split(k).length - 1])), ogVideo: !!fbMeta(html, "og:video") || !!fbMeta(html, "og:video:secure_url"), parsed: !!fbParse(html)};
+            markers: Object.fromEntries(["hd_src", "sd_src", "playable_url", "browser_native", "videoData", ".mp4", "progressive_url", "dash_manifest", "VideoConfig"].map(k => [k, html.split(k).length - 1])),
+            text: html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220),
+            hint: [...html.matchAll(/.{0,70}(isn.?t available|not available|unavailable|can.?t be embedded|embedding is disabled|in your (?:country|region)|restricted|permission|content isn.?t|log in to continue).{0,70}/gi)].slice(0, 3).map(m => m[0].replace(/\s+/g, " ")), ogVideo: !!fbMeta(html, "og:video") || !!fbMeta(html, "og:video:secure_url"), parsed: !!fbParse(html)};
         }, e => ({name, error: String(e.message || e).slice(0, 120)}));
       out.fbIds = fbIds(c.href); out.fbPage = fbPageId(c.href);
       out.fbTest = await Promise.all(fbCandidates(c.href).slice(0, 8).map(([u, ua], n) => probe([`#${n} ${u.replace("https://www.facebook.com", "").slice(0, 70)}`, u, ua])));
@@ -971,7 +973,7 @@ http.createServer(async (req, res) => {
     }
     if (pth === "/api/diag") return diag(res, u.searchParams);
     if (pth === "/api/health") return json(res, 200, {ok: true});
-    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-6", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
+    if (pth === "/api/version") return json(res, 200, {name: "MOON", api: 2, build: "4k-7", ytk: YTK_ON, features: ["jobs", "merge", "mp3", "thumb"], ytdlp: ytVersion,
       platforms: Object.keys(HOSTS)});
     if (pth === "/api/thumb" && req.method === "GET") return thumb(res, u.searchParams);
     if (pth === "/api/extract" && req.method === "POST") return limited(ip) ? json(res, 429, {error: "too many requests", code: "ratelimit"}) : extract(req, res);
