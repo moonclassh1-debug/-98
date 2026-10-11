@@ -287,6 +287,12 @@ function ownFlow(v){
     var items=vids.map(function(q){return {t:q.h?qn(q.h):"ვიდეო",s:q.o.note&&q.h<720?q.o.note:sub(q.h),url:q.o.url}});
     if(au)items.push({t:"აუდიო",s:"MP3",url:au.url});
     show({thumb:d.thumbnail,title:d.title,meta:[d.platform,d.duration].filter(Boolean).join(" · ")},items);
+    // YouTube without 2K/4K: say what the server really saw (source + highest height)
+    var dg=document.getElementById("dbg");
+    if(d.key==="youtube"&&d.maxHeight&&d.maxHeight<1440){
+      if(!dg){dg=document.createElement("div");dg.id="dbg";dg.style.cssText="margin-top:10px;text-align:center;font-size:11px;color:#8a93a8";r.appendChild(dg)}
+      dg.textContent="სერვერმა იპოვა: მაქს. "+d.maxHeight+"p · წყარო: "+(d.source||"?");
+    }else if(dg){dg.remove()}
   });
 }
 
