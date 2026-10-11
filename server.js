@@ -35,6 +35,7 @@ const NAMES = {tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram", fac
 // Put a Netscape-format cookies.txt in a Render "Secret File" and set YTDLP_COOKIES to its path.
 const COOKIES = path.join(TMP, "cookies.txt");
 let hasCookies = false;
+const cookiesForAll = !!process.env.YTDLP_COOKIES;   // a full cookies.txt is used everywhere; INSTAGRAM_SESSIONID only for Instagram
 if (process.env.YTDLP_COOKIES) {
   try { copyFileSync(process.env.YTDLP_COOKIES, COOKIES); hasCookies = true; }  // copy: yt-dlp rewrites the file
   catch (e) { console.error("cookies not loaded:", e.message); }
@@ -56,7 +57,7 @@ if (process.env.INSTAGRAM_SESSIONID) {
 // TikTok blocks plain requests from datacenter IPs; impersonating a real browser helps
 const base = (k, o = {}) => [
   ...(k === "tiktok" ? ["--impersonate", "chrome"] : []),
-  ...(hasCookies && !o.noCookies ? ["--cookies", COOKIES] : []),
+  ...(hasCookies && !o.noCookies && (cookiesForAll || k === "instagram") ? ["--cookies", COOKIES] : []),
   ...(PROXY ? ["--proxy", PROXY] : []),
   ...(k === "youtube" && JS_RT && JS_RT !== "off" ? ["--js-runtimes", JS_RT] : [])
 ];
@@ -186,7 +187,7 @@ function run(args, ms = 30000) {
 // yt-dlp is imported once per worker process and its sessions/caches are reused, instead of a cold
 // `yt-dlp -J` start for every search. Falls back to the CLI automatically if Python workers can't start.
 const WORKER_PY = path.join(dir, "ytdl_worker.py");
-const POOL_SIZE = Math.max(1, Number(process.env.YTDLP_WORKERS || 2));
+const POOL_SIZE = Math.max(1, Number(process.env.YTDLP_WORKERS || 1));   // 1 keeps memory low on small instances
 const pool = [], waiting = [];
 let reqSeq = 0, poolBroken = false, poolCrashes = 0;
 function spawnWorker() {
@@ -304,6 +305,7 @@ async function ytdlpInfo(c) {
   const T = c.k === "youtube" ? 60000 : 35000;
   const opts = o => ["--no-playlist", "--playlist-end", "10", "--no-warnings", "--socket-timeout", "15", ...base(c.k, o)];
   const one = async o => {
+    if (c.k === "youtube") return JSON.parse(await run(["-J", ...opts(o), c.href], T));
     try { return await poolExtract(opts(o), c.href, T); }
     catch (e) { if (e.poolDown) return JSON.parse(await run(["-J", ...opts(o), c.href], T)); throw e; }
   };
